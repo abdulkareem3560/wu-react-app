@@ -13,7 +13,7 @@ app.use(express.json({ limit: "100mb" }));
 
 app.use((req, res, next) => {
   res.header('X-Frame-Options', 'SAMEORIGIN');
-  res.header('Content-Security-Policy', "frame-ancestors 'self' http://localhost:5173");
+  res.header('Content-Security-Policy', "frame-ancestors 'self' https://wu-react-app-3.onrender.com/");
   next();
 });
 
