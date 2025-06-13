@@ -1,0 +1,15 @@
+{
+  "sectionRules": [
+    {
+      "type": "section",
+      "field": "Country",
+      "condition": "Equals to",
+      "value": "US",
+      "ruleIndex": 1,
+      "description": "Country Equals to US"
+    }
+  ],
+  "variableRules": [],
+  "sectionLogic": null,
+  "variableLogic": []
+}
