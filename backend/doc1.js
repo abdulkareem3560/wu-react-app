@@ -24,7 +24,7 @@ function showContent(selectElement, uniqueId) {
     contentToShow.style.display = "block";
     contentToShow.innerHTML = "<p>Loading...</p>";
 
-    const sectionFilePath = `http://localhost:3000/sections/section-${newSelectedOption}.html`;
+    const sectionFilePath = `https://wu-react-app-1.onrender.com/sections/section-${newSelectedOption}.html`;
     fetch(sectionFilePath)
       .then((response) => {
         if (!response.ok) throw new Error("Failed to load the section file");

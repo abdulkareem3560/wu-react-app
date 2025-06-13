@@ -10406,7 +10406,7 @@
             contentToShow.style.display = "block";
             contentToShow.innerHTML = "<p>Loading...</p>";
 
-            const sectionFilePath = `http://localhost:3000/sections/France/section-${selectedOption}.html`;
+            const sectionFilePath = `https://wu-react-app-1.onrender.com/sections/France/section-${selectedOption}.html`;
             fetch(sectionFilePath)
               .then((response) => {
                 if (!response.ok)
