@@ -85,7 +85,7 @@ const TemplateLibrary = () => {
       backgroundColor: "#ffffff",
       textAlign: editorRef.current.style.textAlign,
     };
-    fetch(`${import.meta.env.VITE_BACKEND_BASE_UR}/save-section/${section}`, {
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-section/${section}`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({content: wrappedContent, styles}),
