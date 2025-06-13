@@ -1,0 +1,18 @@
+{
+  "sectionRules": [
+    {
+      "type": "section",
+      "field": "Country",
+      "condition": "Equals to",
+      "value": "India",
+      "ruleIndex": 1,
+      "description": "Country Equals to India"
+    }
+  ],
+  "variableRules": [],
+  "sectionLogic": {
+    "type": "sectionLogic",
+    "expression": "1 OR 2"
+  },
+  "variableLogic": []
+}

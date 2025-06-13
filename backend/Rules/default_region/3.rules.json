@@ -1,0 +1,16 @@
+{
+  "sectionRules": [],
+  "variableRules": [
+    {
+      "type": "variable",
+      "variable": "operatorId",
+      "field": "Country",
+      "condition": "Equals to",
+      "value": "Australia",
+      "ruleIndex": 1,
+      "description": "Country Equals to Australia"
+    }
+  ],
+  "sectionLogic": null,
+  "variableLogic": []
+}

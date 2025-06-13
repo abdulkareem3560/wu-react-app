@@ -1,0 +1,54 @@
+{
+  "sectionRules": [],
+  "variableRules": [
+    {
+      "type": "variable",
+      "variable": "payoutLocation",
+      "field": "Country",
+      "condition": "Equals to",
+      "value": "US",
+      "ruleIndex": 1,
+      "description": "Country Equals to US"
+    },
+    {
+      "type": "variable",
+      "variable": "payoutLocation",
+      "field": "Region",
+      "condition": "Equals to",
+      "value": "California",
+      "ruleIndex": 2,
+      "description": "Region Equals to California"
+    },
+    {
+      "type": "variable",
+      "variable": "payoutLocationSpanish",
+      "field": "Country",
+      "condition": "Equals to",
+      "value": "Spain",
+      "ruleIndex": 1,
+      "description": "Country Equals to Spain"
+    },
+    {
+      "type": "variable",
+      "variable": "payoutLocationSpanish",
+      "field": "Country",
+      "condition": "Equals to",
+      "value": "US",
+      "ruleIndex": 2,
+      "description": "Country Equals to US"
+    }
+  ],
+  "sectionLogic": null,
+  "variableLogic": [
+    {
+      "type": "variableLogic",
+      "variable": "payoutLocation",
+      "expression": "1 and 2"
+    },
+    {
+      "type": "variableLogic",
+      "variable": "payoutLocationSpanish",
+      "expression": "1 or 2"
+    }
+  ]
+}
