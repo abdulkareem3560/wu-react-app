@@ -331,10 +331,6 @@ app.post("/save-resource-bundle", (req, res) => {
   res.json({ success: true });
 });
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html")); // Replace with the actual path to your HTML file
-});
-
 // Route to get section content (auto-creates file if missing)
 // Route to get section content (auto-creates file if missing)
 app.get("/get-section/:id", (req, res) => {
