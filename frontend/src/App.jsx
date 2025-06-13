@@ -19,7 +19,7 @@ function App() {
       <Route path="/" element={<Home/>}/>
       <Route path="/admin" element={<Admin/>}/>
       <Route path="/wizard" element={<Wizard/>}/>
-      <Route path="/layout-library" element={<LayoutLibrary4/>}/>
+      <Route path="/layout-library" element={<LayoutLibrary/>}/>
       <Route path="/template-library" element={<TemplateLibrary/>}/>
       <Route path="/global-attributes" element={<GlobalAttributes/>}/>
       <Route path="/resource-bundles" element={<ResourceBundles/>}/>
