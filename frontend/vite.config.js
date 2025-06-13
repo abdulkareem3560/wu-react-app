@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: import.meta.env.VITE_BACKEND_BASE_URL,  // Using the environment variable here
+        target: `https://wu-react-app-1.onrender.com`,  // Using the environment variable here
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
