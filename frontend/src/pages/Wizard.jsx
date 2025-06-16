@@ -93,6 +93,7 @@ const Wizard = () => {
   };
 
   const submitReceiptName = () => {
+    console.log("here4.....")
     const name = document.getElementById('receipt-name').value.trim();
     if (!name) return alert('Please enter a name for your receipt.');
 
