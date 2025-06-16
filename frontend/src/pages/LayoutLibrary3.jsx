@@ -609,7 +609,6 @@ const LayoutLibraryAdminPortal = () => {
 
     if (isCtrlOrCmd && e.key === 'c') {
       e.preventDefault();
-      console.log(selectedObjectRef.current, "here8........")
       if (selectedObjectRef.current) {
         const copied = { ...selectedObjectRef.current };
         setCopiedData(copied);

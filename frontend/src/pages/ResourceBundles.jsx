@@ -294,7 +294,6 @@ footer {
                     <div style={{width: '40px'}}></div>
                   </div>
                   <div id="key-value-pairs">
-                    {console.log(keyValuePairs, "here5....")}
                     {keyValuePairs.map((pair, index) => (
                       <div className="row" key={index}>
                         <input

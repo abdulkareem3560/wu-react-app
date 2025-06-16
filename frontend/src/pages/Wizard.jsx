@@ -14,7 +14,6 @@ const Wizard = () => {
         if (container) {
           container.innerHTML = '';
           layoutData.forEach((item) => {
-            console.log(item, "here2....")
             const layout = document.createElement('div');
             layout.className = 'layout-container';
             layout.innerHTML = `
@@ -93,17 +92,14 @@ const Wizard = () => {
   };
 
   const submitReceiptName = () => {
-    console.log("here4.....")
     const name = document.getElementById('receipt-name').value.trim();
     if (!name) return alert('Please enter a name for your receipt.');
 
     const iframe = document.querySelector('#step-2 iframe');
     if (!iframe) return alert('Preview iframe not found.');
 
-    console.log(name, iframe, "here5....")
     // Listen for response from iframe
     const handleMessage = (event) => {
-      console.log(event.origin, "here6.....")
       if (event.origin !== `${import.meta.env.VITE_BACKEND_BASE_URL}`) return; // Security check
 
       if (event.data.type === 'PREVIEW_HTML_RESPONSE') {
@@ -143,7 +139,6 @@ const Wizard = () => {
       }
     };
 
-    console.log("here7......")
     window.addEventListener('message', handleMessage);
 
     // Request HTML from iframe

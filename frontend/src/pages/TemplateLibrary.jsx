@@ -48,7 +48,6 @@ const TemplateLibrary = () => {
     const uniqueVars = [...new Set(matches.map(m => m[1]))];
     setVariables(globalVariableKeys.current);
 
-    console.log(globalVariableKeys.current, "here10....");
     const updatedVariableTable = uniqueVars.map((varName) => ({
       variable: varName, value: ''
     }));

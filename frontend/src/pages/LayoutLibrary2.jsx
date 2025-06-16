@@ -184,7 +184,6 @@ const LayoutLibraryAdminPortal = () => {
 
     const textSpan = document.createElement('span');
     textSpan.className = 'object-text';
-    console.log(JSON.stringify(initialProps), "here12.....");
     textSpan.textContent = initialProps.label || "Text";
     el.appendChild(textSpan);
 
