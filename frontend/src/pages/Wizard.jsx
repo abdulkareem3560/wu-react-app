@@ -100,8 +100,10 @@ const Wizard = () => {
     const iframe = document.querySelector('#step-2 iframe');
     if (!iframe) return alert('Preview iframe not found.');
 
+    console.log(name, iframe, "here5....")
     // Listen for response from iframe
     const handleMessage = (event) => {
+      console.log(event.origin, "here6.....")
       if (event.origin !== `${import.meta.env.VITE_BACKEND_BASE_URL}`) return; // Security check
 
       if (event.data.type === 'PREVIEW_HTML_RESPONSE') {
