@@ -1210,7 +1210,7 @@ window.getPreviewHTML = function () {
 };
 
 window.addEventListener('message', (event) => {
-  if (event.origin !== 'http://localhost:5173' || event.origin !== 'https://wu-react-app-3.onrender.com') return; // Security check
+  // if (event.origin !== 'http://localhost:5173' || event.origin !== 'https://wu-react-app-3.onrender.com') return; // Security check
 
   if (event.data.type === 'GET_PREVIEW_HTML') {
     const previewHTML = getPreviewHTML(); // Your existing function
