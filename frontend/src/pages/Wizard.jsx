@@ -143,6 +143,7 @@ const Wizard = () => {
       }
     };
 
+    console.log("here7......")
     window.addEventListener('message', handleMessage);
 
     // Request HTML from iframe
