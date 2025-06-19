@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import NavMenu from "../components/NavMenu.jsx";
+import {ArrowLeft} from "lucide-react";
 
 let currentVariableRuleState = {};
 
@@ -1546,7 +1547,10 @@ const TemplateLibrary = () => {
       <main>
         <div className="top-row">
           <h2>Template Library</h2>
-          <a href="admin" className="back-home">Back to Home</a>
+          <a href="/" className="back-home" style={{display: "flex"}}>
+            <ArrowLeft size={16}/>
+            Back to Home
+          </a>
         </div>
 
         <div className="container">
@@ -1640,7 +1644,7 @@ const TemplateLibrary = () => {
         <div
           id="editor"
           ref={editorRef}
-          // contentEditable="true"
+          contentEditable="true"
           placeholder="Type your content with {{variables}} here..."
           // Render content
           onInput={handleEditorChange} // Handle content updates

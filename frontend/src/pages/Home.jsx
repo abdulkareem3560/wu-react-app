@@ -57,7 +57,7 @@ button:hover {
         <div className="button-container">
           <button onClick={() => handleRedirect('/admin')}>Admin</button>
           <button onClick={() => handleRedirect('/wizard')}>Content - User 1</button>
-          <button onClick={() => handleRedirect('indexu.html')}>Content - User 2</button>
+          <button onClick={() => handleRedirect('/content-user')}>Content - User 2</button>
         </div>
       </div>
     </>

@@ -66,6 +66,32 @@ const DATA_MAPPING_VARIABLES_PATH = path.join(
   "data_mapping.json"
 );
 
+// API to fetch saved receipts (HTML files)
+app.get('/saved-receipts', (req, res) => {
+  fs.readdir(savedReceiptsDir, (err, files) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to fetch saved receipts' });
+    }
+    // Filter out only .html files
+    const htmlFiles = files.filter(file => file.endsWith('.html'));
+
+    // Read the content of each HTML file and send it as part of the response
+    const receipts = htmlFiles.map(file => {
+      const filePath = path.join(savedReceiptsDir, file);
+      const fileContent = fs.readFileSync(filePath, 'utf-8'); // Read the HTML content
+
+      return {
+        name: file,
+        content: fileContent, // Send the content of the HTML file
+      };
+    });
+
+    res.json(receipts);
+  });
+});
+
+
+
 app.post("/save-receipt-html", (req, res) => {
   const { name, html } = req.body;
 

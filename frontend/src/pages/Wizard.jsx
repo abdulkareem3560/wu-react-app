@@ -1,10 +1,13 @@
 import React, {useEffect, useState} from 'react';
+import {useNavigate} from 'react-router-dom';
 import ResourceBundlesContentUser from "../components/ResourceBundlesContentUser.jsx";
+import {ArrowLeft} from "lucide-react";
 
 const Wizard = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedLayoutFile, setSelectedLayoutFile] = useState(null);
   const totalSteps = 3;
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/get-layout-images`)
@@ -36,10 +39,6 @@ const Wizard = () => {
   useEffect(() => {
     updateStepperUI();
   }, [currentStep]);
-
-  const handleRedirect = (path) => {
-    window.location.href = path;
-  };
 
   const updateStepperUI = () => {
     for (let i = 1; i <= totalSteps; i++) {
@@ -130,6 +129,7 @@ const Wizard = () => {
           .then((data) => {
             if (data.error) throw new Error(data.error);
             alert(`Receipt ${name} saved successfully!`);
+            navigate('/saved-receipts');
             closeModal();
           })
           .catch((err) => {
@@ -515,9 +515,10 @@ const Wizard = () => {
       <div className="step-content active" id="step-1">
         <div className="top-row">
           <h2>Select Layout for Receipt & click Next</h2>
-          <a onClick={() => handleRedirect('/')} className="back-home"
-          >Back to Home</a
-          >
+          <a href="/" className="back-home" style={{display: "flex"}}>
+            <ArrowLeft size={16}/>
+            Back to Home
+          </a>
         </div>
         <div className="main-container">
           <div id="uploaded-images"></div>
@@ -527,9 +528,10 @@ const Wizard = () => {
       <div className="step-content" id="step-2">
         <div className="top-row">
           <h2>Configure your Receipt</h2>
-          <a onClick={() => handleRedirect('/')} className="back-home"
-          >Back to Home</a
-          >
+          <a href="/" className="back-home" style={{display: "flex"}}>
+            <ArrowLeft size={16}/>
+            Back to Home
+          </a>
         </div>
         <div className="content-box" id="step-2-content">
           Please select a layout and click Next.
@@ -539,9 +541,10 @@ const Wizard = () => {
       <div className="step-content" id="step-3">
         <div className="top-row">
           <h2>Edit Resource bundles</h2>
-          <a onClick={() => handleRedirect('/')} className="back-home"
-          >Back to Home</a
-          >
+          <a href="/" className="back-home" style={{display: "flex"}}>
+            <ArrowLeft size={16}/>
+            Back to Home
+          </a>
         </div>
         <div className="content-box">
           {currentStep === 3 && <ResourceBundlesContentUser/>}

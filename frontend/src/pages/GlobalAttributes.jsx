@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import NavMenu from "../components/NavMenu.jsx";
+import {ArrowLeft} from "lucide-react";
 
 const DataSettings = () => {
   const [globals, setGlobals] = useState([]);
@@ -262,7 +263,10 @@ const DataSettings = () => {
       <main>
         <div className="top-row">
           <h2>Data Settings</h2>
-          <a href="admin" className="back-home">Back to Home</a>
+          <a href="/" className="back-home" style={{display: "flex"}}>
+            <ArrowLeft size={16}/>
+            Back to Home
+          </a>
         </div>
 
         <section id="globalVariablesSection">

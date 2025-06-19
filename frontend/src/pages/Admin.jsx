@@ -1,5 +1,6 @@
 import React from 'react';
 import logo from "../assets/images/Western-Union.png"
+import {ArrowLeft} from "lucide-react";
 
 const Admin = () => {
   const handleRedirect = (path) => {
@@ -55,6 +56,7 @@ const Admin = () => {
           }
 
           .back-button {
+            display: flex;
             position: fixed;
             top: 20px;
             right: 20px;
@@ -77,11 +79,12 @@ const Admin = () => {
       </style>
 
       <button className="back-button" onClick={() => handleRedirect('/')}>
+        <ArrowLeft size={16}/>
         Back to Home
       </button>
 
       <div className="logo-container">
-        <img className="logo" src={logo} alt="Western Union Logo" />
+        <img className="logo" src={logo} alt="Western Union Logo"/>
       </div>
 
       <div className="button-container">

@@ -1,5 +1,6 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState} from 'react';
 import NavMenu from "../components/NavMenu.jsx";
+import {ArrowLeft} from "lucide-react";
 
 const LabelSettings = () => {
   const [currentLanguage, setCurrentLanguage] = useState('');
@@ -263,12 +264,15 @@ footer {
     margin-top: auto;
 }`}
       </style>
-      <NavMenu activeItem={3} />
+      <NavMenu activeItem={3}/>
 
       <main>
         <div className="top-row">
           <h2>Label Settings</h2>
-          <a href="admin" className="back-home">Back to Home</a>
+          <a href="/" className="back-home" style={{display: "flex"}}>
+            <ArrowLeft size={16}/>
+            Back to Home
+          </a>
         </div>
         <div className="main-section">
           <h3>Manage Resource Bundles</h3>

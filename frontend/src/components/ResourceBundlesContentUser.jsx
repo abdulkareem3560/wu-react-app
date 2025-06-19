@@ -132,7 +132,6 @@ main {
     flex: 1;
 }
 h2 {
-    margin-bottom: 20px;
     font-weight: 600;
     color: #333;
 }

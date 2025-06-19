@@ -1,4 +1,5 @@
 import React from 'react';
+import NavMenu from "../components/NavMenu.jsx";
 
 const ImageLibrary = () => {
   return (
@@ -90,6 +91,7 @@ const ImageLibrary = () => {
           }
         `}
       </style>
+      {/*<NavMenu activeItem={4}/>*/}
 
       <div className="button-container">
         <h2>Upload a File</h2>
