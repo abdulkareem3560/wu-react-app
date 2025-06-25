@@ -14,6 +14,7 @@ import ContentUser2 from "./pages/ContentUser2.jsx";
 
 import Template1 from "./components/Template1.jsx";
 import Template2 from "./components/Template2.jsx";
+import ReactFormBuilder2 from "./pages/ReactFormBuilder2.jsx";
 
 const routes = [
   { path: "/", element: <Home /> },
@@ -29,6 +30,7 @@ const routes = [
   { path: "/content-user", element: <ContentUser2 /> },
   { path: "/template1", element: <Template1 /> },
   { path: "/template2", element: <Template2 /> },
+  { path: "/form-builder-2", element: <ReactFormBuilder2 /> },
 ];
 
 function App() {

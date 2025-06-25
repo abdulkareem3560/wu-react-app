@@ -45,7 +45,10 @@
       "description": "Region Equal to Andhra"
     }
   ],
-  "sectionLogic": null,
+  "sectionLogic": {
+    "type": "sectionLogic",
+    "expression": "1 AND 2"
+  },
   "variableLogic": [
     {
       "type": "variableLogic",

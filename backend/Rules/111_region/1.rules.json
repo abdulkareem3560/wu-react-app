@@ -1,0 +1,23 @@
+{
+  "sectionRules": [
+    {
+      "type": "section",
+      "field": "Country",
+      "condition": "Equals to",
+      "value": "India",
+      "ruleIndex": 1,
+      "description": "Country Equals to India"
+    },
+    {
+      "type": "section",
+      "field": "Region",
+      "condition": "Equals to",
+      "value": "Andhra",
+      "ruleIndex": 2,
+      "description": "Region Equals to Andhra"
+    }
+  ],
+  "variableRules": [],
+  "sectionLogic": null,
+  "variableLogic": []
+}

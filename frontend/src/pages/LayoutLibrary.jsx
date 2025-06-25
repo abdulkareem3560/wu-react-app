@@ -1,498 +1,556 @@
-// LayoutLibraryAdminPortal.jsx
 import React, {useState, useRef, useEffect, useCallback} from 'react';
 import html2canvas from 'html2canvas';
 import NavMenu from "../components/NavMenu.jsx";
 
+const GRID_SIZE = 10;
+const DEFAULT_OBJECT = {
+  width: 150,
+  height: 60,
+  label: 'Text',
+  align: 'left',
+  x: 100,
+  y: 100,
+};
+
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 const LayoutLibraryAdminPortal = () => {
-  const canvasRef = useRef(null);
-  const [selectedElement, setSelectedElement] = useState(null);
+  // State declarations
+  const [layoutObjects, setLayoutObjects] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
   const [isGridShown, setIsGridShown] = useState(true);
-  const [copiedElementData, setCopiedElementData] = useState(null); // New state for copied element data
-
-  // State for property panel inputs
   const [layoutName, setLayoutName] = useState('');
   const [propWidth, setPropWidth] = useState('');
   const [propHeight, setPropHeight] = useState('');
   const [propLabel, setPropLabel] = useState('');
   const [propAlign, setPropAlign] = useState('left');
   const [layoutRegion, setLayoutRegion] = useState('');
+  const [clipboardObject, setClipboardObject] = useState(null);
+  const [fixedSections, setFixedSections] = useState([]);
 
+  const canvasRef = useRef(null);
+
+  // Save state for undo/redo
   const saveState = useCallback(() => {
-    if (canvasRef.current) {
-      setUndoStack((prev) => [...prev, canvasRef.current.innerHTML]);
-      setRedoStack([]);
+    setUndoStack(stack => [...stack, deepClone(layoutObjects)]);
+    setRedoStack([]);
+  }, [layoutObjects]);
+
+  const fixedSectionOptions = Array.from({length: 30}, (_, i) => ({
+    label: `Section ${i + 1}`,
+    value: i + 1
+  }));
+
+  // Handler for adding a fixed section
+  const handleAddFixedSection = (e) => {
+    const value = Number(e.target.value);
+    if (!value) return;
+    if (!fixedSections.includes(value)) {
+      setFixedSections(prev => [...prev, value]);
     }
+  };
+
+// Handler for deleting a fixed section
+  const handleDeleteFixedSection = (sectionValue) => {
+    setFixedSections(prev => prev.filter(val => val !== sectionValue));
+  };
+
+  // Undo/redo functionality
+  const handleUndo = useCallback(() => {
+    if (undoStack.length === 0) return;
+    setRedoStack(stack => [...stack, deepClone(layoutObjects)]);
+    const prev = undoStack[undoStack.length - 1];
+    setLayoutObjects(deepClone(prev));
+    setUndoStack(stack => stack.slice(0, -1));
+    setSelectedId(null);
+  }, [layoutObjects, undoStack]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    setUndoStack(stack => [...stack, deepClone(layoutObjects)]);
+    const next = redoStack[redoStack.length - 1];
+    setLayoutObjects(deepClone(next));
+    setRedoStack(stack => stack.slice(0, -1));
+    setSelectedId(null);
+  }, [layoutObjects, redoStack]);
+
+  // Object manipulation
+  const addObject = useCallback((x = 100, y = 100, data = {}) => {
+    saveState();
+    setLayoutObjects(objs => [
+      ...objs,
+      {
+        id: Date.now() + Math.random(),
+        x, y,
+        ...DEFAULT_OBJECT,
+        ...data,
+      },
+    ]);
+  }, [saveState]);
+
+  const updateObject = useCallback((id, updates) => {
+    setLayoutObjects(objs =>
+      objs.map(obj => obj.id === id ? {...obj, ...updates} : obj)
+    );
   }, []);
 
-  const rebindEvents = useCallback(() => {
-    // This function is crucial for re-attaching event listeners after innerHTML changes.
-    // In React, direct DOM manipulation and re-binding are generally avoided.
-    // Instead, React's reconciliation handles updates.
-    // We will ensure that our event handlers are attached directly when elements are rendered.
-  }, []); // Dependency array is empty because rebindEvents doesn't depend on any state/props
+  const removeObject = useCallback((id) => {
+    saveState();
+    setLayoutObjects(objs => objs.filter(obj => obj.id !== id));
+    setSelectedId(null);
+  }, [saveState]);
 
-  const updateCanvasSize = useCallback(() => {
-    if (!canvasRef.current) return;
-    const objects = canvasRef.current.querySelectorAll(".canvas-object");
-    let maxRight = 0;
-    let maxBottom = 0;
-
-    objects.forEach((obj) => {
-      const left = parseInt(obj.style.left || 0);
-      const top = parseInt(obj.style.top || 0);
-      const right = left + obj.offsetWidth;
-      const bottom = top + obj.offsetHeight;
-      if (right > maxRight) maxRight = right;
-      if (bottom > maxBottom) maxBottom = bottom;
-    });
-
-    canvasRef.current.style.width = `${maxRight + 40}px`;
-    canvasRef.current.style.height = `${maxBottom + 40}px`;
-  }, []);
-
-  const updatePropertyPanel = useCallback(() => {
-    if (selectedElement) {
-      setPropWidth(selectedElement.offsetWidth);
-      setPropHeight(selectedElement.offsetHeight);
-      // For the label, we need to consider if it's a direct text node or within a child element
-      // Based on the original code, it seems the textContent is directly on the canvas-object or its first child
-      setPropLabel(selectedElement.querySelector('.object-text')?.textContent || selectedElement.textContent);
-      setPropAlign(selectedElement.style.textAlign || "left");
-    } else {
-      setPropWidth('');
-      setPropHeight('');
-      setPropLabel('');
-      setPropAlign('left');
-    }
-  }, [selectedElement]);
-
-  const makeDraggable = useCallback((el) => {
-    const onMouseDown = (e) => {
-      if (e.target.classList.contains("resizer")) return;
-      const shiftX = e.clientX - el.getBoundingClientRect().left;
-      const shiftY = e.clientY - el.getBoundingClientRect().top;
-      const canvasRect = canvasRef.current.getBoundingClientRect();
-      const gridSize = 10;
-
-      const moveAt = (pageX, pageY) => {
-        let newX = pageX - canvasRect.left - shiftX;
-        let newY = pageY - canvasRect.top - shiftY;
-        el.style.left = `${Math.round(newX / gridSize) * gridSize}px`;
-        el.style.top = `${Math.round(newY / gridSize) * gridSize}px`;
-        updateCanvasSize();
-      };
-
-      const onMouseMove = (moveEvent) => {
-        moveAt(moveEvent.pageX, moveEvent.pageY);
-      };
-
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        saveState();
-      }, {once: true}); // Use { once: true } to remove listener after first call
-    };
-    el.addEventListener("mousedown", onMouseDown);
-    // Return a cleanup function for React's useEffect
-    return () => el.removeEventListener("mousedown", onMouseDown);
-  }, [saveState, updateCanvasSize]);
-
-  const makeResizable = useCallback((el, resizer) => {
-    const onMouseDown = (e) => {
-      e.stopPropagation();
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startWidth = parseInt(getComputedStyle(el).width);
-      const startHeight = parseInt(getComputedStyle(el).height);
-
-      const doDrag = (moveEvent) => {
-        el.style.width = `${startWidth + moveEvent.clientX - startX}px`;
-        el.style.height = `${startHeight + moveEvent.clientY - startY}px`;
-        updatePropertyPanel();
-        updateCanvasSize();
-      };
-
-      const stopDrag = () => {
-        document.removeEventListener("mousemove", doDrag);
-        document.removeEventListener("mouseup", stopDrag);
-        saveState();
-      };
-
-      document.addEventListener("mousemove", doDrag);
-      document.addEventListener("mouseup", stopDrag);
-    };
-    resizer.addEventListener("mousedown", onMouseDown);
-    return () => resizer.removeEventListener("mousedown", onMouseDown);
-  }, [saveState, updateCanvasSize, updatePropertyPanel]);
-
-  // const enableRename = useCallback((el) => {
-  //   const onDoubleClick = () => {
-  //     const currentTextNode = el.querySelector('.object-text');
-  //     const newName = prompt("Enter new text:", currentTextNode ? currentTextNode.textContent : el.textContent);
-  //     if (newName !== null && newName.trim() !== "") {
-  //       if (currentTextNode) {
-  //         currentTextNode.textContent = newName;
-  //       } else {
-  //         el.textContent = newName; // Fallback if .object-text is not found
-  //       }
-  //       updatePropertyPanel();
-  //       saveState();
-  //     }
-  //   };
-  //   el.addEventListener("dblclick", onDoubleClick);
-  //   return () => el.removeEventListener("dblclick", onDoubleClick);
-  // }, [saveState, updatePropertyPanel]);
-
-  const enableSelection = useCallback((el) => {
-    const onClick = () => {
-      if (selectedElement) selectedElement.classList.remove("selected");
-      setSelectedElement(el);
-      el.classList.add("selected");
-      updatePropertyPanel();
-    };
-    el.addEventListener("click", onClick);
-    return () => el.removeEventListener("click", onClick);
-  }, [selectedElement, updatePropertyPanel]);
-
-  const createObject = useCallback((x, y, initialText = "Text") => {
-    const el = document.createElement("div");
-    el.className = "canvas-object";
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.style.width = "150px";
-    el.style.height = "60px";
-
-    const textSpan = document.createElement('span');
-    textSpan.className = 'object-text';
-    textSpan.textContent = "Text";
-    el.appendChild(textSpan);
-
-    const resizer = document.createElement("div");
-    resizer.className = "resizer";
-    el.appendChild(resizer);
-    canvasRef.current.appendChild(el);
-
-    makeDraggable(el);
-    makeResizable(el, resizer);
-    // enableRename(el);
-    enableSelection(el);
-    updateCanvasSize();
-  }, [makeDraggable, makeResizable, enableSelection, updateCanvasSize]);
-
-  // Effect to apply draggable/resizable/selectable properties to newly added elements
-  useEffect(() => {
-    if (canvasRef.current) {
-      canvasRef.current.querySelectorAll(".canvas-object").forEach((el) => {
-        const resizer = el.querySelector(".resizer");
-        makeDraggable(el);
-        if (resizer) makeResizable(el, resizer);
-        // enableRename(el);
-        enableSelection(el);
-      });
-    }
-  }, [undoStack, redoStack, makeDraggable, makeResizable, enableSelection]); // Re-run when canvas content potentially changes
-
-  // Drop functionality
-  const handleDrop = useCallback((e) => {
+  // Event handlers
+  const handleDrop = useCallback(e => {
     e.preventDefault();
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    saveState();
-    createObject(x, y);
-  }, [createObject, saveState]);
 
-  // Handle drag of sidebar sections
-  const handleDragStart = (e) => {
-    e.dataTransfer.setData("text/plain", e.target.dataset.type);
-  };
+    addObject(x, y);
+  }, [addObject]);
 
-  const handleUndo = () => {
-    if (undoStack.length === 0) return;
-    const lastState = undoStack[undoStack.length - 1];
-    setRedoStack((prev) => [...prev, canvasRef.current.innerHTML]);
-    setUndoStack((prev) => prev.slice(0, prev.length - 1));
-    canvasRef.current.innerHTML = lastState;
-    setSelectedElement(null); // Deselect any element after undo/redo
-    updateCanvasSize();
-    rebindEvents(); // Rebind events after DOM manipulation
-  };
+  const handleDragStart = useCallback(e => {
+    e.dataTransfer.setData("text/plain", "Section");
+  }, []);
 
-  const handleRedo = () => {
-    if (redoStack.length === 0) return;
-    const nextState = redoStack[redoStack.length - 1];
-    setUndoStack((prev) => [...prev, canvasRef.current.innerHTML]);
-    setRedoStack((prev) => prev.slice(0, prev.length - 1));
-    canvasRef.current.innerHTML = nextState;
-    setSelectedElement(null); // Deselect any element after undo/redo
-    updateCanvasSize();
-    rebindEvents(); // Rebind events after DOM manipulation
-  };
+  const selectObject = useCallback(id => {
+    setSelectedId(id);
+    const obj = layoutObjects.find(o => o.id === id);
+    if (obj) {
+      setPropWidth(obj.width);
+      setPropHeight(obj.height);
+      setPropLabel(obj.label);
+      setPropAlign(obj.align);
+    }
+  }, [layoutObjects]);
 
-  const handleSaveLayout = () => {
-    const filenameBase = `${layoutName || 'default'}_${layoutRegion || 'region'}`;
+  // Property handlers
+  const handlePropWidthChange = useCallback(e => {
+    setPropWidth(e.target.value);
+    if (selectedId) updateObject(selectedId, {width: Number(e.target.value)});
+  }, [selectedId, updateObject]);
 
-    html2canvas(canvasRef.current).then((canvasImage) => {
+  const handlePropHeightChange = useCallback(e => {
+    setPropHeight(e.target.value);
+    if (selectedId) updateObject(selectedId, {height: Number(e.target.value)});
+  }, [selectedId, updateObject]);
+
+  const handlePropLabelChange = useCallback(e => {
+    setPropLabel(e.target.value);
+    if (selectedId) updateObject(selectedId, {label: e.target.value});
+  }, [selectedId, updateObject]);
+
+  const handlePropAlignChange = useCallback(e => {
+    setPropAlign(e.target.value);
+    if (selectedId) updateObject(selectedId, {align: e.target.value});
+  }, [selectedId, updateObject]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = e => {
+      // Arrow keys movement
+      if (selectedId) {
+        const obj = layoutObjects.find(o => o.id === selectedId);
+        if (obj) {
+          let dx = 0, dy = 0;
+          if (e.key === "ArrowUp") dy = -GRID_SIZE;
+          if (e.key === "ArrowDown") dy = GRID_SIZE;
+          if (e.key === "ArrowLeft") dx = -GRID_SIZE;
+          if (e.key === "ArrowRight") dx = GRID_SIZE;
+
+          if (dx || dy) {
+            saveState();
+            updateObject(selectedId, {
+              x: obj.x + dx,
+              y: obj.y + dy,
+            });
+            e.preventDefault();
+          }
+        }
+      }
+
+      // Delete key
+      if (e.key === "Delete" && selectedId) {
+        removeObject(selectedId);
+        e.preventDefault();
+      }
+
+      // Copy/paste
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && selectedId) {
+        const obj = layoutObjects.find(o => o.id === selectedId);
+        if (obj) setClipboardObject({...obj});
+        e.preventDefault();
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v" && clipboardObject) {
+        saveState();
+        const newObj = {
+          ...clipboardObject,
+          id: Date.now() + Math.random(),
+          x: clipboardObject.x + 20,
+          y: clipboardObject.y + 20,
+        };
+        setLayoutObjects(objs => [...objs, newObj]);
+        setSelectedId(newObj.id);
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedId, layoutObjects, clipboardObject, saveState, updateObject, removeObject]);
+
+  // Add this useEffect to dynamically adjust canvas size
+  useEffect(() => {
+    if (!canvasRef.current || layoutObjects.length === 0) return;
+
+    let maxRight = 0;
+    let maxBottom = 0;
+
+    layoutObjects.forEach(obj => {
+      const right = obj.x + obj.width;
+      const bottom = obj.y + obj.height;
+      if (right > maxRight) maxRight = right;
+      if (bottom > maxBottom) maxBottom = bottom;
+    });
+
+    // Add 40px padding
+    const newWidth = Math.max(900, maxRight + 40);
+    const newHeight = Math.max(600, maxBottom + 40);
+
+    canvasRef.current.style.width = `${newWidth}px`;
+    canvasRef.current.style.height = `${newHeight}px`;
+  }, [layoutObjects]);
+
+  // Save layout functionality
+  const handleSaveLayout = useCallback(async () => {
+    // Adjust canvas size to fit all objects
+    const canvasNode = canvasRef.current;
+    if (!canvasNode) return;
+
+    // Calculate required canvas size
+    let maxRight = 0, maxBottom = 0;
+    layoutObjects.forEach(obj => {
+      const right = obj.x + obj.width;
+      const bottom = obj.y + obj.height;
+      if (right > maxRight) maxRight = right;
+      if (bottom > maxBottom) maxBottom = bottom;
+    });
+
+    const padding = 40;
+    const requiredWidth = maxRight + padding;
+    const requiredHeight = maxBottom + padding;
+
+    // Temporarily set canvas size
+    const originalStyle = {
+      width: canvasNode.style.width,
+      height: canvasNode.style.height,
+    };
+    canvasNode.style.width = `${requiredWidth}px`;
+    canvasNode.style.height = `${requiredHeight}px`;
+
+    try {
+      // Capture image
+      const canvasImage = await html2canvas(canvasNode, {
+        backgroundColor: "#fff",
+        scrollX: 0,
+        scrollY: 0,
+        width: requiredWidth,
+        height: requiredHeight,
+        scale: 2,
+        useCORS: true,
+      });
+
+      // Generate HTML
       const imageData = canvasImage.toDataURL("image/png");
       const layoutHTML = generateLayoutHTML();
+      const filenameBase = `${layoutName || 'default'}_${layoutRegion || 'region'}`;
 
+      // Send to backend
       fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-layout`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           imageData,
-          layoutHTML: layoutHTML,
+          layoutHTML,
           filename: filenameBase,
         }),
-      })
-        .then((res) => res.text())
-        .then(alert)
-        .catch((err) => alert("Save failed: " + err));
-    });
-  };
+      }).then(res => res.text()).then(alert).catch(err => alert("Save failed: " + err));
+    } catch (err) {
+      alert("Failed to save layout: " + err.message);
+    } finally {
+      // Restore original canvas size
+      canvasNode.style.width = originalStyle.width;
+      canvasNode.style.height = originalStyle.height;
+    }
+  }, [layoutObjects, layoutName, layoutRegion, fixedSections]);
 
   const generateLayoutHTML = () => {
-    // This is a simplified version. In a real React app, you'd likely generate this server-side
-    // or use a more robust templating approach based on your component structure.
     let layoutHTML = `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <title>Layout</title>
-          <link rel="stylesheet" href="../styles1.css">
-          <style>
-           body {
-              margin: 0;
-              padding-top: 60px;
-            }
-            #header {
-              background-color: #f8f8f8;
-              padding: 10px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              border-bottom: 2px solid #ccc;
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              z-index: 1000;
-            }
-            #header button {
-              padding: 10px 16px;
-              font-size: 16px;
-              background-color: black;
-              color: #ffd400;
-              font-weight: 600;
-              border: none;
-              padding: 8px 20px;
-              border-radius: 20px;
-              cursor: pointer;
-              transition: background-color 0.3s ease;
-            }
-            #canvas-container {
-              position: relative;
-              flex-grow: 1;
-              padding: 20px;
-              margin-top: 20px;
-            }
-            .canvas-object {
-              border-radius: 8px;
-              position: relative;
-              border: 2px solid #42a5f5;
-              padding: 10px;
-              box-sizing: border-box;
-              min-width: 150px;
-              min-height: 60px;
-              overflow: hidden;
-              transition: height 0.3s ease;
-            }
-            .dropdown-content {
-              display: none;
-              margin-top: 10px;
-              padding: 10px;
-              background: #f0f0f0;
-              border: 1px solid #ccc;
-              border-radius: 4px;
-            }
-            .dropdown-content p {
-              color: #333;
-            }
-            .popup {
-              display: none;
-              position: fixed;
-              z-index: 1000;
-              left: 0;
-              top: 0;
-              width: 100%;
-              height: 100%;
-              background-color: rgba(0, 0, 0, 0.6);
-              justify-content: center;
-              align-items: center;
-            }
-            .popup-content {
-              background: #fff;
-              border-radius: 10px;
-              width: 80%;
-              max-height: 80vh;
-              overflow-y: auto;
-            }
-            .preview-heading {
-              text-align: center;
-              margin-bottom: 20px;
-            }
-             #previewContent {
-                border: 1px solid black;
-                width: fit-content;
-                margin: 20px auto;
-                padding: 0 5px;
-            }
-            .checkbox-container {
-              display: flex;
-              align-items: center;
-            }
-            .checkbox-container input[type="checkbox"] {
-              margin-right: 4px;
-            }
-            label {
-              cursor: pointer;
-            }
-            .modal {
-              display: none;
-              position: fixed;
-              z-index: 1000;
-              left: 0;
-              top: 0;
-              right: 0;
-              bottom: 0;
-              background-color: rgba(0, 0, 0, 0.6);
-              justify-content: center;
-              align-items: center;
-            }
-            .modal-content {
-              background: #fff;
-              padding: 20px;
-              border-radius: 10px;
-              width: 800px;
-              max-height: 80vh;
-              overflow-y: auto;
-            }
-            .tabs {
-              display: flex;
-              border-bottom: 1px solid #ccc;
-              margin-bottom: 1rem;
-            }
-            .tab {
-              padding: 10px 20px;
-              cursor: pointer;
-              border: 1px solid #ccc;
-              border-bottom: none;
-              background-color: #eee;
-              margin-right: 5px;
-              border-radius: 8px 8px 0 0;
-            }
-            .tab.active {
-              background-color: #fff;
-              font-weight: bold;
-            }
-            .tab-content {
-              display: none;
-            }
-            .tab-content.active {
-              display: block;
-            }
-            .rule-row {
-              display: flex;
-              gap: 10px;
-              margin-bottom: 10px;
-              align-items: center;
-            }
-            .close-btn {
-              float: right;
-              cursor: pointer;
-              font-weight: bold;
-              font-size: 18px;
-            }
-            .saved-rules {
-              margin-top: 30px;
-            }
-            .rule-section {
-              margin-top: 20px;
-            }
-            .rule-text {
-              margin-left: 20px;
-              margin-bottom: 5px;
-            }
-            .toolbar button {
-              margin-right: 5px;
-            }
-            .back-home {
-              border: 1.5px solid #006aff;
-              background: transparent;
-              color: #006aff;
-              font-weight: 600;
-              font-size: 14px;
-              border-radius: 20px;
-              padding: 6px 16px;
-              text-decoration: none;
-              cursor: pointer;
-            }
-            .back-home:hover {
-              background: #e5f0ff;
-            }
-            .deleteSectionBtn {
-              display: none;
-            }
-            .canvas-object:hover .deleteSectionBtn {
-              display: block;
-            }
-          </style>
-          </head>
-          <body>
-          <div id="header">
-            <div style="width: 54%; text-align: end">
-              <button id="previewButton" onclick="showPreview()">Preview</button>
-            </div>
-            <div style="margin-right: 35px">
-              <button id="addLayoutSectionBtn">+ Add layout section</button>
-            </div>
-          </div>
-            <div class="modal" id="ruleModal">
-        <div class="modal-content">
-          <span class="close-btn" onclick="closeModal()">&times;</span>
-          <div class="tabs">
-            <div class="tab active" onclick="switchTab('section')">Section</div>
-            <div class="tab" onclick="switchTab('variables')">Variables</div>
-          </div>
-          <div id="section" class="tab-content active">
-            <div id="sectionRulesContainer"></div>
-            <div id="sectionRulesWrapper"></div>
-            <button onclick="addSectionRule()">+ Add Section Rule</button>
-            <div style="margin-top: 10px">
-              <label for="sectionLogicInput"><strong>Logic Expression (e.g., 1 OR (2 AND 3))</strong></label><br />
-              <input
-                id="sectionLogicInput"
-                type="text"
-                style="width: 99%; padding: 4px"
-                placeholder="Enter logic like 1 OR (2 AND 3)"
-              />
-            </div>
-            <div style="margin-top: 10px">
-              <label for="sectionLogicExpr"><strong>Section Logic Expression</strong> (e.g., "1 OR (2 AND 3)"):</label>
-              <input type="text" id="sectionLogicExpr" style="width: 99%" />
-            </div>
-          </div>
-          <div id="variables" class="tab-content">
-            <div id="variableRulesContainer"></div>
-          </div>
-           <button style="margin: 10px 0" onclick="saveRules()">Save Rules</button>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Layout</title>
+  <link rel="stylesheet" href="../styles1.css">
+  <style>
+   body {
+      margin: 0;
+      padding-top: 60px;
+    }
+    #header {
+      background-color: #f8f8f8;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #ccc;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+    }
+    #header button {
+      padding: 10px 16px;
+      font-size: 16px;
+      background-color: black;
+      color: #ffd400;
+      font-weight: 600;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #canvas-container {
+      position: relative;
+      flex-grow: 1;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .canvas-object {
+      border-radius: 8px;
+      position: relative;
+      border: 2px solid #42a5f5;
+      padding: 10px;
+      box-sizing: border-box;
+      min-width: 150px;
+      min-height: 60px;
+      overflow: hidden;
+      transition: height 0.3s ease;
+    }
+    .dropdown-content {
+      display: none;
+      margin-top: 10px;
+      padding: 10px;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .dropdown-content p {
+      color: #333;
+    }
+    .popup {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+    }
+    .popup-content {
+      background: #fff;
+      border-radius: 10px;
+      width: 80%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .preview-heading {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+     #previewContent {
+        border: 1px solid black;
+        width: fit-content;
+        margin: 20px auto;
+        padding: 0 5px;
+    }
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+    }
+    .checkbox-container input[type="checkbox"] {
+      margin-right: 4px;
+    }
+    label {
+      cursor: pointer;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      width: 800px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #ccc;
+      margin-bottom: 1rem;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      border-bottom: none;
+      background-color: #eee;
+      margin-right: 5px;
+      border-radius: 8px 8px 0 0;
+    }
+    .tab.active {
+      background-color: #fff;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .rule-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    .close-btn {
+      float: right;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .saved-rules {
+      margin-top: 30px;
+    }
+    .rule-section {
+      margin-top: 20px;
+    }
+    .rule-text {
+      margin-left: 20px;
+      margin-bottom: 5px;
+    }
+    .toolbar button {
+      margin-right: 5px;
+    }
+    .back-home {
+      border: 1.5px solid #006aff;
+      background: transparent;
+      color: #006aff;
+      font-weight: 600;
+      font-size: 14px;
+      border-radius: 20px;
+      padding: 6px 16px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .back-home:hover {
+      background: #e5f0ff;
+    }
+    .deleteSectionBtn {
+      display: none;
+    }
+    .canvas-object:hover .deleteSectionBtn {
+      display: block;
+    }
+    /* Add any additional styles for fixed-canvas-object if needed */
+    .fixed-canvas-object {
+      background: #fff8dc;
+      border: 2px solid #f7b500;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <div style="width: 54%; text-align: end">
+      <button id="previewButton" onclick="showPreview()">Preview</button>
+    </div>
+    <div style="margin-right: 35px">
+      <button id="addLayoutSectionBtn">+ Add layout section</button>
+    </div>
+  </div>
+  <div class="modal" id="ruleModal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('section')">Section</div>
+        <div class="tab" onclick="switchTab('variables')">Variables</div>
+      </div>
+      <div id="section" class="tab-content active">
+        <div id="sectionRulesContainer"></div>
+        <div id="sectionRulesWrapper"></div>
+        <button onclick="addSectionRule()">+ Add Section Rule</button>
+        <div style="margin-top: 10px">
+          <label for="sectionLogicInput"><strong>Logic Expression (e.g., 1 OR (2 AND 3))</strong></label><br />
+          <input id="sectionLogicInput" type="text" style="width: 99%; padding: 4px" placeholder="Enter logic like 1 OR (2 AND 3)" />
+        </div>
+        <div style="margin-top: 10px">
+          <label for="sectionLogicExpr"><strong>Section Logic Expression</strong> (e.g., "1 OR (2 AND 3)"):</label>
+          <input type="text" id="sectionLogicExpr" style="width: 99%" />
+        </div>
+      </div>
+      <div id="variables" class="tab-content">
+        <div id="variableRulesContainer"></div>
+      </div>
+      <button style="margin: 10px 0" onclick="saveRules()">Save Rules</button>
+    </div>
+  </div>
+  <div id="canvas-container">
+`;
+
+    // --- Add all fixed sections dynamically ---
+    if (typeof fixedSections !== "undefined" && Array.isArray(fixedSections)) {
+      fixedSections.forEach((sectionValue, idx) => {
+        layoutHTML += `
+      <div class="canvas-object fixed-canvas-object"
+           id="fixed-canvas-object-${sectionValue}"
+           style="position: absolute; left: ${110 + idx * 30}px; top: 0px; width: 323px; min-height: 60px;">
+        <div style="display:flex; justify-content: space-between;">
+          <select disabled style="width:fit-content;">
+            <option value="${sectionValue}" selected>Section ${sectionValue}</option>
+          </select>
+          <div style="background: #c2e2fc; border: 1px solid #6db6f8; height: fit-content; border-radius: 5px; padding:3px 7px;">
+            <p style="margin: 0">fixed</p>
           </div>
         </div>
-        <div id="canvas-container">`;
+        <div class="dropdown-content" id="content-for-fixed-object-section-${sectionValue}" style="display: block;"></div>
+      </div>
+      `;
+      });
+    }
 
-    // Iterate over the actual DOM elements in the canvas to generate the HTML
+    // --- Add all dynamic canvas objects as before ---
     const canvasObjects = canvasRef.current.querySelectorAll(".canvas-object");
     canvasObjects.forEach((el, index) => {
       const left = el.style.left;
@@ -501,206 +559,66 @@ const LayoutLibraryAdminPortal = () => {
       const height = el.style.height;
       const textContent = el.querySelector('.object-text')?.textContent || el.textContent.trim();
       const uniqueId = `canvas-object-${index}`;
-
-      let dropdownHTML = `<div style="display:flex; justify-content: space-between;"> <select id="sectionSelect" onchange="showContent(this, '${uniqueId}')" style="width:fit-content;">
-              <option value="">-- Select --</option>`;
+      let dropdownHTML = `<div style="display:flex; justify-content: space-between;"><select id="sectionSelect" onchange="showContent(this, '${uniqueId}')" style="width:fit-content;">
+      <option value="">-- Select --</option>`;
       for (let i = 1; i <= 30; i++) {
         dropdownHTML += `<option value="${i}">Section ${i}</option>`;
       }
       dropdownHTML += "</select>";
       dropdownHTML += `<button
-    style="align-self: flex-start; margin:0; padding:8px 12px; position: relative; cursor: pointer;"
-    class="addRuleBtn"
-    title="Edit Rule"
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      fill="currentColor"
-      viewBox="0 0 16 16"
+      style="align-self: flex-start; margin:0; padding:8px 12px; position: relative; cursor: pointer;"
+      class="addRuleBtn"
+      title="Edit Rule"
     >
-      <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2L14 4.793 13.207 5.586 10.414 2.793 11.207 2zm1.586 3L12 4.793 3 13.793V14h.207L13.793 5z"/>
-    </svg>
-  </button>
-          </div> `;
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        fill="currentColor"
+        viewBox="0 0 16 16"
+      >
+        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2L14 4.793 13.207 5.586 10.414 2.793 11.207 2zm1.586 3L12 4.793 3 13.793V14h.207L13.793 5z"/>
+      </svg>
+    </button>
+    </div>`;
 
       let dropdownContentHTML = "";
       for (let i = 1; i <= 30; i++) {
         const content = `<p><strong>Dummy Content for ${textContent} - Option ${i}:</strong> This is the content for option ${i}.</p>
-              <p>Additional information or content for this option can be added here.</p>`;
-
+        <p>Additional information or content for this option can be added here.</p>`;
         dropdownContentHTML += `
-                  <div class="dropdown-content" id="content-for-${uniqueId}-option-${i}" style="display: none;">
-                      ${content}
-                  </div>
-              `;
+        <div class="dropdown-content" id="content-for-${uniqueId}-option-${i}" style="display: none;">
+          ${content}
+        </div>
+      `;
       }
 
       layoutHTML += `
-            <div class="canvas-object" id="${uniqueId}" style="position: absolute; left: ${left}; top: ${top}; width: ${width}; min-height: ${height};">
-              ${dropdownHTML}
-              ${dropdownContentHTML}
-            </div>`;
+      <div class="canvas-object" id="${uniqueId}" style="position: absolute; left: ${left}; top: ${top}; width: ${width}; min-height: ${height};">
+        ${dropdownHTML}
+        ${dropdownContentHTML}
+      </div>`;
     });
 
     layoutHTML += `
-            </div>
-       <div id="popup" class="popup">
-        <div class="popup-content">
-          <h2 class="preview-heading">Preview</h2>
-          <div id="previewContent"></div>
-          <div class="close-button-container">
-            <button onclick="closePopup()" style="margin: 10px 0">Close</button>
-          </div>
+    </div>
+    <div id="popup" class="popup">
+      <div class="popup-content">
+        <h2 class="preview-heading">Preview</h2>
+        <div id="previewContent"></div>
+        <div class="close-button-container">
+          <button onclick="closePopup()" style="margin: 10px 0">Close</button>
         </div>
       </div>
-        <script src="../doc1.js"></script>
-        `;
-
+    </div>
+    <script src="../doc1.js"></script>
+</body>
+</html>
+`;
     return layoutHTML;
   };
 
-  // Keyboard event for moving and deleting elements
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Ensure the canvas or a canvas object is focused for keyboard events to apply
-      if (!canvasRef.current.contains(document.activeElement) && !selectedElement) {
-        return;
-      }
-
-      // Check for Ctrl key (or Cmd key on Mac)
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-
-      if (isCtrlOrCmd && e.key === "c") {
-        e.preventDefault();
-        if (selectedElement) {
-          setCopiedElementData({
-            width: selectedElement.offsetWidth,
-            height: selectedElement.offsetHeight,
-            label: selectedElement.querySelector('.object-text')?.textContent || selectedElement.textContent.trim(),
-            textAlign: selectedElement.style.textAlign,
-            bg: selectedElement.style.background,
-          });
-        }
-      } else if (isCtrlOrCmd && e.key === "v") {
-        e.preventDefault();
-        if (copiedElementData) {
-          const offset = 20; // offset so pasted element doesn't overlap exactly
-          const originalLeft = selectedElement ? parseInt(selectedElement.style.left || 0) : 0;
-          const originalTop = selectedElement ? parseInt(selectedElement.style.top || 0) : 0;
-          const newX = originalLeft + offset;
-          const newY = originalTop + offset;
-
-          saveState();
-          createObject(newX, newY, copiedElementData);
-        }
-      } else if (e.key === "Delete") {
-        e.preventDefault();
-        if (selectedElement) {
-          selectedElement.remove();
-          setSelectedElement(null);
-          saveState();
-          updateCanvasSize();
-        }
-      } else {
-        // Movement (Arrow keys)
-        if (!selectedElement) return; // Only allow movement if an element is selected
-
-        let top = parseInt(selectedElement.style.top || 0);
-        let left = parseInt(selectedElement.style.left || 0);
-        const gridSize = 10; // Movement step
-
-        switch (e.key) {
-          case "ArrowUp":
-            top -= gridSize;
-            selectedElement.style.top = `${top}px`;
-            updateCanvasSize();
-            saveState();
-            e.preventDefault();
-            break;
-          case "ArrowDown":
-            top += gridSize;
-            selectedElement.style.top = `${top}px`;
-            updateCanvasSize();
-            saveState();
-            e.preventDefault();
-            break;
-          case "ArrowLeft":
-            left -= gridSize;
-            selectedElement.style.left = `${left}px`;
-            updateCanvasSize();
-            saveState();
-            e.preventDefault();
-            break;
-          case "ArrowRight":
-            left += gridSize;
-            selectedElement.style.left = `${left}px`;
-            updateCanvasSize();
-            saveState();
-            e.preventDefault();
-            break;
-          default:
-            break;
-        }
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedElement, saveState, updateCanvasSize, copiedElementData, createObject]);
-
-  // Update properties when selectedElement or prop changes
-  useEffect(() => {
-    if (selectedElement) {
-      updatePropertyPanel();
-    }
-  }, [selectedElement, updatePropertyPanel]);
-
-  // Handle changes from property panel inputs
-  const handlePropWidthChange = (e) => {
-    const value = e.target.value;
-    setPropWidth(value);
-    if (selectedElement) {
-      selectedElement.style.width = `${value}px`;
-      updateCanvasSize();
-      saveState();
-    }
-  };
-
-  const handlePropHeightChange = (e) => {
-    const value = e.target.value;
-    setPropHeight(value);
-    if (selectedElement) {
-      selectedElement.style.height = `${value}px`;
-      updateCanvasSize();
-      saveState();
-    }
-  };
-
-  const handlePropLabelChange = (e) => {
-    const value = e.target.value;
-    setPropLabel(value);
-    if (selectedElement) {
-      const textSpan = selectedElement.querySelector('.object-text');
-      if (textSpan) {
-        textSpan.textContent = value;
-      } else {
-        selectedElement.textContent = value; // Fallback
-      }
-      saveState();
-    }
-  };
-
-  const handlePropAlignChange = (e) => {
-    const value = e.target.value;
-    setPropAlign(value);
-    if (selectedElement) {
-      selectedElement.style.textAlign = value;
-      saveState();
-    }
-  };
-
+  // Render
   return (
     <>
       <style>{`
@@ -960,61 +878,26 @@ const LayoutLibraryAdminPortal = () => {
           margin: 0 0  10px 8px;
         }
       `}</style>
-     <NavMenu activeItem={0} />
-
+      <NavMenu activeItem={0}/>
       <div className="container">
         <div className="top-row">
           <h1>Layout Library</h1>
-          <div className="controls" role="toolbar" aria-label="Layout controls">
-            <button
-              className="undo"
-              type="button"
-              onClick={handleUndo}
-              aria-label="Undo changes"
-              disabled={undoStack.length === 0}
-            >
-              ↩ Undo
-            </button>
-            <button
-              className="redo"
-              type="button"
-              onClick={handleRedo}
-              aria-label="Redo changes"
-              disabled={redoStack.length === 0}
-            >
-              ↪ Redo
-            </button>
-            <button
-              className="save-layout"
-              type="button"
-              onClick={handleSaveLayout}
-              aria-label="Save layout"
-            >
-              Save Layout
-            </button>
-            <label htmlFor="toggle-grid">
+          <div className="controls">
+            <button className="undo" onClick={handleUndo} disabled={!undoStack.length}>↩ Undo</button>
+            <button className="redo" onClick={handleRedo} disabled={!redoStack.length}>↪ Redo</button>
+            <button className="save-layout" onClick={handleSaveLayout}>Save Layout</button>
+            <label>
               <input
                 type="checkbox"
-                id="toggle-grid"
                 checked={isGridShown}
-                onChange={() => setIsGridShown(!isGridShown)}
-                aria-checked={isGridShown}
-              />
-              Show Grid
+                onChange={() => setIsGridShown(g => !g)}
+              /> Show Grid
             </label>
-            <button
-              className="back-home"
-              type="button"
-              onClick={() => window.location.href = '/admin'}
-              aria-label="Back to Home"
-            >
-              ⬅ Back to Home
-            </button>
+            <button className="back-home" onClick={() => window.location.href = '/admin'}>⬅ Back to Home</button>
           </div>
         </div>
-
         <div className="workspace">
-          <aside className="sidebar" aria-label="Layout Properties Sidebar">
+          <aside className="sidebar">
             <h4>Drag & Drop to create layout</h4>
             <div
               style={{
@@ -1030,7 +913,6 @@ const LayoutLibraryAdminPortal = () => {
               onDragStart={handleDragStart}
               data-type="Section"
               tabIndex="0"
-              aria-label="Add Section"
             >
               <svg
                 width="24"
@@ -1084,81 +966,162 @@ const LayoutLibraryAdminPortal = () => {
               Section
             </div>
             <h2>Properties</h2>
-            <label htmlFor="layout-name">Layout Name</label>
-            <input
-              type="text"
-              id="layout-name"
-              placeholder="Enter layout name"
-              value={layoutName}
-              onChange={(e) => setLayoutName(e.target.value)}
-            />
-
-            <label htmlFor="prop-width">Width</label>
-            <input
-              type="number"
-              id="prop-width"
-              placeholder="Width"
-              value={propWidth}
-              onChange={handlePropWidthChange}
-              disabled={!selectedElement}
-            />
-
-            <label htmlFor="prop-height">Height</label>
-            <input
-              type="number"
-              id="prop-height"
-              placeholder="Height"
-              value={propHeight}
-              onChange={handlePropHeightChange}
-              disabled={!selectedElement}
-            />
-
-            <label htmlFor="prop-label">Label</label>
-            <input
-              type="text"
-              id="prop-label"
-              placeholder="Label"
-              value={propLabel}
-              onChange={handlePropLabelChange}
-              disabled={!selectedElement}
-            />
-
-            <label htmlFor="prop-align">Align</label>
-            <select
-              id="prop-align"
-              value={propAlign}
-              onChange={handlePropAlignChange}
-              disabled={!selectedElement}
-            >
-              <option value="" disabled>Select</option>
+            <label>Layout Name</label>
+            <input type="text" value={layoutName} onChange={e => setLayoutName(e.target.value)}/>
+            <label>Add Fixed Sections</label>
+            <div style={{marginBottom:"16px"}}>
+              <select value="" onChange={handleAddFixedSection} style={{margin: 0}}>
+                <option value="">Select Section</option>
+                {fixedSectionOptions.map(opt => (
+                  <option
+                    key={opt.value}
+                    value={opt.value}
+                    disabled={fixedSections.includes(opt.value)}
+                  >
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {fixedSections.map(val => (
+                <div key={val} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  background: "#fff8dc",
+                  border: "1px solid #6db6f8",
+                  borderRadius: "5px",
+                  padding: "4px 8px",
+                  margin: "6px 0",
+                  justifyContent: "space-between"
+                }}>
+                  <span>{`Section ${val}`}</span>
+                  <button
+                    style={{
+                      background: "#f44",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "3px",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      marginLeft: "8px",
+                      padding: "0 8px"
+                    }}
+                    onClick={() => handleDeleteFixedSection(val)}
+                    title="Delete"
+                  >×
+                  </button>
+                </div>
+              ))}
+            </div>
+            <label>Width</label>
+            <input type="number" value={propWidth} onChange={handlePropWidthChange} disabled={!selectedId}/>
+            <label>Height</label>
+            <input type="number" value={propHeight} onChange={handlePropHeightChange} disabled={!selectedId}/>
+            <label>Label</label>
+            <input type="text" value={propLabel} onChange={handlePropLabelChange} disabled={!selectedId}/>
+            <label>Align</label>
+            <select value={propAlign} onChange={handlePropAlignChange} disabled={!selectedId}>
               <option value="left">Left</option>
               <option value="center">Center</option>
               <option value="right">Right</option>
             </select>
-
-            <label htmlFor="layout-region">Region</label>
-            <select
-              id="layout-region"
-              value={layoutRegion}
-              onChange={(e) => setLayoutRegion(e.target.value)}
-            >
-              <option value="" disabled>Select</option>
+            <label>Region</label>
+            <select value={layoutRegion} onChange={e => setLayoutRegion(e.target.value)}>
+              <option value="">Select</option>
               <option value="North America">North America</option>
               <option value="Europe">Europe</option>
               <option value="Asia">Asia</option>
               <option value="Africa">Africa</option>
             </select>
           </aside>
-
           <div id="canvas-container">
             <div
               id="canvas"
               ref={canvasRef}
               tabIndex="0"
-              onDragOver={(e) => e.preventDefault()}
+              onDragOver={e => e.preventDefault()}
               onDrop={handleDrop}
+              style={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                overflow: "visible",
+                // backgroundImage: isGridShown ? 'linear-gradient(to right, #ddd 1px, transparent 1px), linear-gradient(to bottom, #ddd 1px, transparent 1px)' : 'none',
+                // backgroundSize: '20px 20px',
+              }}
             >
-              {/* Canvas objects will be dynamically added here by JavaScript/React */}
+              {layoutObjects.map(obj => (
+                <div
+                  key={obj.id}
+                  className={`canvas-object${selectedId === obj.id ? ' selected' : ''}`}
+                  style={{
+                    left: obj.x,
+                    top: obj.y,
+                    width: obj.width,
+                    height: obj.height,
+                    textAlign: obj.align,
+                    position: 'absolute',
+                  }}
+                  onClick={() => selectObject(obj.id)}
+                  tabIndex={0}
+                  onMouseDown={e => {
+                    // Drag logic
+                    const startX = e.clientX, startY = e.clientY;
+                    const origX = obj.x, origY = obj.y;
+                    const onMove = moveEvt => {
+                      const dx = moveEvt.clientX - startX;
+                      const dy = moveEvt.clientY - startY;
+                      updateObject(obj.id, {
+                        x: Math.round((origX + dx) / GRID_SIZE) * GRID_SIZE,
+                        y: Math.round((origY + dy) / GRID_SIZE) * GRID_SIZE,
+                      });
+                    };
+                    const onUp = () => {
+                      saveState();
+                      window.removeEventListener('mousemove', onMove);
+                      window.removeEventListener('mouseup', onUp);
+                    };
+                    window.addEventListener('mousemove', onMove);
+                    window.addEventListener('mouseup', onUp);
+                  }}
+                >
+                  <span className="object-text">{obj.label}</span>
+                  {/* Resizer */}
+                  <div
+                    className="resizer"
+                    onMouseDown={e => {
+                      e.stopPropagation();
+                      const startX = e.clientX, startY = e.clientY;
+                      const origW = obj.width, origH = obj.height;
+                      const onMove = moveEvt => {
+                        const dw = moveEvt.clientX - startX;
+                        const dh = moveEvt.clientY - startY;
+                        updateObject(obj.id, {
+                          width: Math.max(50, origW + dw),
+                          height: Math.max(30, origH + dh),
+                        });
+                      };
+                      const onUp = () => {
+                        saveState();
+                        window.removeEventListener('mousemove', onMove);
+                        window.removeEventListener('mouseup', onUp);
+                      };
+                      window.addEventListener('mousemove', onMove);
+                      window.addEventListener('mouseup', onUp);
+                    }}
+                  />
+                  {/* Delete button (optional) */}
+                  <button
+                    className="deleteSectionBtn"
+                    style={{position: 'absolute', top: 2, right: 2, display: 'none'}}
+                    onClick={e => {
+                      e.stopPropagation();
+                      removeObject(obj.id);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>

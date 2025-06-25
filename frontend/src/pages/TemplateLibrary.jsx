@@ -42,6 +42,8 @@ const TemplateLibrary = () => {
   const [sectionLogic, setSectionLogic] = useState('');
   const [sectionLogicExpr, setSectionLogicExpr] = useState('');
   let globalVariableKeys = useRef([]);
+  const [fixed, setFixed] = useState(Array(30).fill(true));
+
 
   const handleExtractVariables = () => {
     const editorHTML = editorRef.current.innerHTML;
@@ -289,6 +291,11 @@ const TemplateLibrary = () => {
   const switchTab = (tabId) => {
     setActiveTab(tabId);
   };
+
+  const extractNumber = () => {
+    const index = parseInt(section.split("-")[1]) - 1;
+    return index;
+  }
 
   function loadGlobalVariableKeys() {
     fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/api/global-variables`)
@@ -934,6 +941,13 @@ const TemplateLibrary = () => {
     setVariableTable(updatedTable);
   };
 
+  const handleInputChange = () => {
+    const index = extractNumber();
+    const temp = [...fixed];
+    temp[index] = !temp[index];
+    setFixed(temp)
+  }
+
   const updateFontWeight = (weight) => {
     if (!weight) return;
 
@@ -1236,7 +1250,7 @@ const TemplateLibrary = () => {
           width: 160px;
       }
       
-      label {
+      .form-group label {
           font-weight: 600;
           margin-bottom: 4px;
           font-size: 0.9rem;
@@ -1641,10 +1655,32 @@ const TemplateLibrary = () => {
           </div>
         </div>
 
+        {section && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              marginTop: "20px"
+            }}
+          >
+            <input
+              type="checkbox"
+              id="myCheckbox"
+              onChange={handleInputChange}
+            />
+            <label
+              htmlFor="myCheckbox"
+              style={{whiteSpace: "nowrap", fontWeight:600}}
+            >
+              Make the section static
+            </label>
+          </div>
+        )}
         <div
           id="editor"
           ref={editorRef}
-          contentEditable="true"
+          contentEditable={fixed[extractNumber()]}
           placeholder="Type your content with {{variables}} here..."
           // Render content
           onInput={handleEditorChange} // Handle content updates

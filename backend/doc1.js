@@ -36,11 +36,7 @@ function showContent(selectElement, uniqueId) {
 
         extractVariables();
 
-        const currentHeight = parseInt(parent.style.height || 60);
-        const expandedHeight = contentToShow.offsetHeight + 80;
-        parent.style.height = expandedHeight + "px";
-
-        adjustObjectPositions();
+        setTimeout(adjustObjectPositions, 50);
       })
       .catch(() => {
         contentToShow.innerHTML =
@@ -52,10 +48,44 @@ function showContent(selectElement, uniqueId) {
   updateDropdownOptions();
 }
 
+// Load content for all fixed sections
+function loadAllFixedObjectContents() {
+  // Find all fixed-canvas-objects
+  const fixedObjects = document.querySelectorAll('.fixed-canvas-object');
+  fixedObjects.forEach(fixedObj => {
+    // The section number is in the id: "fixed-canvas-object-<number>"
+    const match = fixedObj.id.match(/^fixed-canvas-object-(\d+)$/);
+    if (!match) return;
+    const sectionNum = match[1];
+    const contentDiv = document.getElementById(`content-for-fixed-object-section-${sectionNum}`);
+    if (contentDiv) {
+      contentDiv.innerHTML = "<p>Loading...</p>";
+      fetch(`/sections/section-${sectionNum}.html`)
+        .then((response) => {
+          if (!response.ok) throw new Error(`Failed to load Section ${sectionNum}`);
+          return response.text();
+        })
+        .then((data) => {
+          contentDiv.innerHTML = data;
+          setTimeout(adjustObjectPositions, 50);
+        })
+        .catch(() => {
+          contentDiv.innerHTML = "<p>Failed to load content. Please try again later.</p>";
+          setTimeout(adjustObjectPositions, 50);
+        });
+    }
+  });
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+  loadAllFixedObjectContents();
+  updateDropdownOptions();
+});
+
+
 // Function to update all dropdowns by disabling already selected options
 function updateDropdownOptions() {
   const dropdowns = document.querySelectorAll(".canvas-object select");
-
   // Build a set of all selected values, keyed by dropdown id
   const selectedValues = {};
   dropdowns.forEach((dropdown) => {
@@ -67,11 +97,9 @@ function updateDropdownOptions() {
   dropdowns.forEach((dropdown) => {
     const parentId = dropdown.closest(".canvas-object").id;
     const currentValue = selectedValues[parentId];
-
     dropdown.querySelectorAll("option").forEach((option) => {
       // Enable all first
       option.disabled = false;
-
       // Disable option if it's selected in other dropdowns (not this one)
       if (
         option.value !== "" && // skip empty option
@@ -87,15 +115,20 @@ function updateDropdownOptions() {
 function adjustObjectPositions() {
   const canvas = document.getElementById("canvas-container");
   const objects = Array.from(canvas.getElementsByClassName("canvas-object"));
-  // Get all objects sorted by their top position (from top to bottom)
-  objects.sort((a, b) => parseInt(a.style.top) - parseInt(b.style.top));
 
   let currentTop = 0; // Start from the top of the canvas
+  const gap = 10; // Margin between objects
+
   objects.forEach((obj) => {
-    const height = parseInt(obj.style.height || 60); // Get height of the object
-    obj.style.top = currentTop + "px"; // Adjust the top position (FIXED LINE)
-    currentTop += height + 10; // Add some margin (10px) between objects
+    obj.style.position = 'absolute'; // Ensure absolute positioning
+    obj.style.top = currentTop + "px";
+    const height = obj.offsetHeight; // Use actual rendered height
+    currentTop += height + gap;
   });
+
+  // Optionally, set the container height to fit all objects
+  canvas.style.position = "relative";
+  canvas.style.height = currentTop + "px";
 }
 
 function showPreview() {
@@ -112,15 +145,26 @@ function showPreview() {
       const contentToDisplay = section.querySelector(
         `#content-for-${section.id}-option-${selectedOption}`
       );
-
       if (contentToDisplay) {
         previewHTML += `
-                  <div class="section-preview">
-                    <div class="section-content">
-                      ${contentToDisplay.innerHTML}
-                    </div>
-                  </div>`;
+          <div class="section-preview">
+            <div class="section-content">
+              ${contentToDisplay.innerHTML}
+            </div>
+          </div>`;
       }
+    }
+  });
+
+  // Prepend all fixed section content (in order)
+  const fixedObjects = document.querySelectorAll('.fixed-canvas-object');
+  fixedObjects.forEach(fixedObj => {
+    const match = fixedObj.id.match(/^fixed-canvas-object-(\d+)$/);
+    if (!match) return;
+    const sectionNum = match[1];
+    const contentDiv = document.getElementById(`content-for-fixed-object-section-${sectionNum}`);
+    if (contentDiv) {
+      previewHTML += contentDiv.innerHTML;
     }
   });
 
@@ -360,7 +404,7 @@ function openRuleModalForSection(sectionId) {
         addBtn.onclick = () => {
           const currentRules = collectCurrentVariableRules();
           if (!currentRules[variable])
-            currentRules[variable] = { rules: [], logic: "" };
+            currentRules[variable] = {rules: [], logic: ""};
           currentRules[variable].rules.push({
             field: "",
             condition: "",
@@ -506,7 +550,7 @@ function populateVariableRules(existingRules = {}) {
 
       // Add an empty rule to this variable's rule list
       if (!currentRules[key]) {
-        currentRules[key] = { rules: [], logic: "" };
+        currentRules[key] = {rules: [], logic: ""};
       }
 
       currentRules[key].rules.push({
@@ -581,6 +625,7 @@ function populateVariableRules(existingRules = {}) {
     container.appendChild(wrapper);
   });
 }
+
 function collectCurrentVariableRules() {
   const result = {};
 
@@ -730,7 +775,7 @@ function saveRules() {
     `/save-rules/${sectionKey}?region=${encodeURIComponent(currentRegion)}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify(rulesToSave),
     }
   )
@@ -1131,7 +1176,7 @@ function createCanvasObject(id, topPosition) {
   `;
 
   // Append dropdown-content divs for options 1-30
-  for (let i = 1; i <= 30; i++) {
+  for (let i = 2; i <= 30; i++) {
     const div = document.createElement("div");
     div.className = "dropdown-content";
     div.id = `content-for-canvas-object-${id}-option-${i}`;
@@ -1203,6 +1248,17 @@ window.getPreviewHTML = function () {
             </div>
           </div>`;
       }
+    }
+  });
+
+  const fixedObjects = document.querySelectorAll('.fixed-canvas-object');
+  fixedObjects.forEach(fixedObj => {
+    const match = fixedObj.id.match(/^fixed-canvas-object-(\d+)$/);
+    if (!match) return;
+    const sectionNum = match[1];
+    const contentDiv = document.getElementById(`content-for-fixed-object-section-${sectionNum}`);
+    if (contentDiv) {
+      previewHTML += contentDiv.innerHTML;
     }
   });
 
