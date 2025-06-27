@@ -21,7 +21,7 @@ const routes = [
   { path: "/admin", element: <Admin /> },
   { path: "/wizard", element: <Wizard /> },
   { path: "/layout-library", element: <LayoutLibrary /> },
-  { path: "/template-library", element: <TemplateLibrary3 /> },
+  { path: "/template-library", element: <TemplateLibrary /> },
   { path: "/global-attributes", element: <GlobalAttributes /> },
   { path: "/resource-bundles", element: <ResourceBundles /> },
   { path: "/image-library", element: <ImageLibrary /> },

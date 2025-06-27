@@ -132,43 +132,40 @@ function adjustObjectPositions() {
 }
 
 function showPreview() {
-  // Collect all the content from the canvas-container (or the sections with content).
   const sections = document.querySelectorAll(".canvas-object");
   let previewHTML = "";
 
+  // In order: for each object, if fixed, show its fixed content, else show selected content
   sections.forEach((section) => {
-    const dropdown = section.querySelector("select");
-    const selectedOption = dropdown ? dropdown.value : null;
-
-    // If a section has selected an option, grab the content for that option
-    if (selectedOption) {
-      const contentToDisplay = section.querySelector(
-        `#content-for-${section.id}-option-${selectedOption}`
-      );
-      if (contentToDisplay) {
-        previewHTML += `
-          <div class="section-preview">
-            <div class="section-content">
-              ${contentToDisplay.innerHTML}
-            </div>
-          </div>`;
+    if (section.classList.contains('fixed-canvas-object')) {
+      // Fixed section: load its content
+      const match = section.id.match(/^fixed-canvas-object-(\d+)$/);
+      if (!match) return;
+      const sectionNum = match[1];
+      const contentDiv = document.getElementById(`content-for-fixed-object-section-${sectionNum}`);
+      if (contentDiv) {
+        previewHTML += contentDiv.innerHTML;
+      }
+    } else {
+      // Selectable section: show selected content
+      const dropdown = section.querySelector("select");
+      const selectedOption = dropdown ? dropdown.value : null;
+      if (selectedOption) {
+        const contentToDisplay = section.querySelector(
+          `#content-for-${section.id}-option-${selectedOption}`
+        );
+        if (contentToDisplay) {
+          previewHTML += `
+            <div class="section-preview">
+              <div class="section-content">
+                ${contentToDisplay.innerHTML}
+              </div>
+            </div>`;
+        }
       }
     }
   });
 
-  // Prepend all fixed section content (in order)
-  const fixedObjects = document.querySelectorAll('.fixed-canvas-object');
-  fixedObjects.forEach(fixedObj => {
-    const match = fixedObj.id.match(/^fixed-canvas-object-(\d+)$/);
-    if (!match) return;
-    const sectionNum = match[1];
-    const contentDiv = document.getElementById(`content-for-fixed-object-section-${sectionNum}`);
-    if (contentDiv) {
-      previewHTML += contentDiv.innerHTML;
-    }
-  });
-
-  // If content is available for preview
   if (previewHTML) {
     document.getElementById("previewContent").innerHTML = previewHTML;
     document.getElementById("popup").style.display = "flex";
@@ -1233,32 +1230,30 @@ window.getPreviewHTML = function () {
   let previewHTML = "";
 
   sections.forEach((section) => {
-    const dropdown = section.querySelector("select");
-    const selectedOption = dropdown ? dropdown.value : null;
-
-    if (selectedOption) {
-      const contentToDisplay = section.querySelector(
-        `#content-for-${section.id}-option-${selectedOption}`
-      );
-      if (contentToDisplay) {
-        previewHTML += `
-          <div class="section-preview">
-            <div class="section-content">
-              ${contentToDisplay.innerHTML}
-            </div>
-          </div>`;
+    if (section.classList.contains('fixed-canvas-object')) {
+      const match = section.id.match(/^fixed-canvas-object-(\d+)$/);
+      if (!match) return;
+      const sectionNum = match[1];
+      const contentDiv = document.getElementById(`content-for-fixed-object-section-${sectionNum}`);
+      if (contentDiv) {
+        previewHTML += contentDiv.innerHTML;
       }
-    }
-  });
-
-  const fixedObjects = document.querySelectorAll('.fixed-canvas-object');
-  fixedObjects.forEach(fixedObj => {
-    const match = fixedObj.id.match(/^fixed-canvas-object-(\d+)$/);
-    if (!match) return;
-    const sectionNum = match[1];
-    const contentDiv = document.getElementById(`content-for-fixed-object-section-${sectionNum}`);
-    if (contentDiv) {
-      previewHTML += contentDiv.innerHTML;
+    } else {
+      const dropdown = section.querySelector("select");
+      const selectedOption = dropdown ? dropdown.value : null;
+      if (selectedOption) {
+        const contentToDisplay = section.querySelector(
+          `#content-for-${section.id}-option-${selectedOption}`
+        );
+        if (contentToDisplay) {
+          previewHTML += `
+            <div class="section-preview">
+              <div class="section-content">
+                ${contentToDisplay.innerHTML}
+              </div>
+            </div>`;
+        }
+      }
     }
   });
 

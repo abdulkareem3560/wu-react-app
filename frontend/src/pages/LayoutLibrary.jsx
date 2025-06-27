@@ -4,8 +4,8 @@ import NavMenu from "../components/NavMenu.jsx";
 
 const GRID_SIZE = 10;
 const DEFAULT_OBJECT = {
-  width: 150,
-  height: 60,
+  width: 323,
+  height: 70,
   label: 'Text',
   align: 'left',
   x: 100,
@@ -34,6 +34,17 @@ const LayoutLibraryAdminPortal = () => {
 
   const canvasRef = useRef(null);
 
+  const getLabel = (index) => {
+    switch (index) {
+      case 1:
+        return `Section ${index} (Header)`
+      case 20:
+        return `Section ${index} (Footer)`
+      default:
+        return `Section ${index}`
+    }
+  }
+
   // Save state for undo/redo
   const saveState = useCallback(() => {
     setUndoStack(stack => [...stack, deepClone(layoutObjects)]);
@@ -41,7 +52,7 @@ const LayoutLibraryAdminPortal = () => {
   }, [layoutObjects]);
 
   const fixedSectionOptions = Array.from({length: 30}, (_, i) => ({
-    label: `Section ${i + 1}`,
+    label: getLabel(i),
     value: i + 1
   }));
 
@@ -79,6 +90,7 @@ const LayoutLibraryAdminPortal = () => {
   }, [layoutObjects, redoStack]);
 
   // Object manipulation
+// When adding a new object, default fixedSection to null
   const addObject = useCallback((x = 100, y = 100, data = {}) => {
     saveState();
     setLayoutObjects(objs => [
@@ -87,10 +99,12 @@ const LayoutLibraryAdminPortal = () => {
         id: Date.now() + Math.random(),
         x, y,
         ...DEFAULT_OBJECT,
+        fixedSection: null, // <-- new property
         ...data,
       },
     ]);
   }, [saveState]);
+
 
   const updateObject = useCallback((id, updates) => {
     setLayoutObjects(objs =>
@@ -254,6 +268,8 @@ const LayoutLibraryAdminPortal = () => {
     canvasNode.style.width = `${requiredWidth}px`;
     canvasNode.style.height = `${requiredHeight}px`;
 
+    canvasNode.classList.add('export-mode');
+
     try {
       // Capture image
       const canvasImage = await html2canvas(canvasNode, {
@@ -272,7 +288,7 @@ const LayoutLibraryAdminPortal = () => {
       const filenameBase = `${layoutName || 'default'}_${layoutRegion || 'region'}`;
 
       // Send to backend
-      fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-layout`, {
+      await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-layout`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -284,7 +300,8 @@ const LayoutLibraryAdminPortal = () => {
     } catch (err) {
       alert("Failed to save layout: " + err.message);
     } finally {
-      // Restore original canvas size
+      // Restore UI
+      canvasNode.classList.remove('export-mode');
       canvasNode.style.width = originalStyle.width;
       canvasNode.style.height = originalStyle.height;
     }
@@ -298,7 +315,7 @@ const LayoutLibraryAdminPortal = () => {
   <title>Layout</title>
   <link rel="stylesheet" href="../styles1.css">
   <style>
-   body {
+    body {
       margin: 0;
       padding-top: 60px;
     }
@@ -339,7 +356,7 @@ const LayoutLibraryAdminPortal = () => {
       border: 2px solid #42a5f5;
       padding: 10px;
       box-sizing: border-box;
-      min-width: 150px;
+      min-width: 323px;
       min-height: 60px;
       overflow: hidden;
       transition: height 0.3s ease;
@@ -378,11 +395,11 @@ const LayoutLibraryAdminPortal = () => {
       text-align: center;
       margin-bottom: 20px;
     }
-     #previewContent {
-        border: 1px solid black;
-        width: fit-content;
-        margin: 20px auto;
-        padding: 0 5px;
+    #previewContent {
+      border: 1px solid black;
+      width: fit-content;
+      margin: 20px auto;
+      padding: 0 5px;
     }
     .checkbox-container {
       display: flex;
@@ -483,7 +500,6 @@ const LayoutLibraryAdminPortal = () => {
     .canvas-object:hover .deleteSectionBtn {
       display: block;
     }
-    /* Add any additional styles for fixed-canvas-object if needed */
     .fixed-canvas-object {
       background: #fff8dc;
       border: 2px solid #f7b500;
@@ -501,103 +517,114 @@ const LayoutLibraryAdminPortal = () => {
     </div>
   </div>
   <div class="modal" id="ruleModal">
-    <div class="modal-content">
-      <span class="close-btn" onclick="closeModal()">&times;</span>
-      <div class="tabs">
-        <div class="tab active" onclick="switchTab('section')">Section</div>
-        <div class="tab" onclick="switchTab('variables')">Variables</div>
-      </div>
-      <div id="section" class="tab-content active">
-        <div id="sectionRulesContainer"></div>
-        <div id="sectionRulesWrapper"></div>
-        <button onclick="addSectionRule()">+ Add Section Rule</button>
-        <div style="margin-top: 10px">
-          <label for="sectionLogicInput"><strong>Logic Expression (e.g., 1 OR (2 AND 3))</strong></label><br />
-          <input id="sectionLogicInput" type="text" style="width: 99%; padding: 4px" placeholder="Enter logic like 1 OR (2 AND 3)" />
-        </div>
-        <div style="margin-top: 10px">
-          <label for="sectionLogicExpr"><strong>Section Logic Expression</strong> (e.g., "1 OR (2 AND 3)"):</label>
-          <input type="text" id="sectionLogicExpr" style="width: 99%" />
-        </div>
-      </div>
-      <div id="variables" class="tab-content">
-        <div id="variableRulesContainer"></div>
-      </div>
-      <button style="margin: 10px 0" onclick="saveRules()">Save Rules</button>
+     <div class="modal-content">
+    <span class="close-btn" onclick="closeModal()">&times;</span>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('section')">Section</div>
+      <div class="tab" onclick="switchTab('variables')">Variables</div>
     </div>
+    <div id="section" class="tab-content active">
+      <div id="sectionRulesContainer"></div>
+      <div id="sectionRulesWrapper"></div>
+      <button onclick="addSectionRule()">+ Add Section Rule</button>
+      <div style="margin-top: 10px">
+        <label for="sectionLogicInput"><strong>Logic Expression (e.g., 1 OR (2 AND 3))</strong></label><br />
+        <input
+          id="sectionLogicInput"
+          type="text"
+          style="width: 99%; padding: 4px"
+          placeholder="Enter logic like 1 OR (2 AND 3)"
+        />
+      </div>
+      <div style="margin-top: 10px">
+        <label for="sectionLogicExpr"><strong>Section Logic Expression</strong> (e.g., "1 OR (2 AND 3)"):</label>
+        <input type="text" id="sectionLogicExpr" style="width: 99%" />
+      </div>
+    </div>
+    <div id="variables" class="tab-content">
+      <div id="variableRulesContainer"></div>
+    </div>
+    <button style="margin: 10px 0" onclick="saveRules()">Save Rules</button>
+  </div>
   </div>
   <div id="canvas-container">
 `;
 
-    // --- Add all fixed sections dynamically ---
-    if (typeof fixedSections !== "undefined" && Array.isArray(fixedSections)) {
-      fixedSections.forEach((sectionValue, idx) => {
+    // Render all dropped objects, fixed or not
+    layoutObjects.forEach((obj, index) => {
+      const uniqueId = `canvas-object-${index}`;
+      const left = typeof obj.x === "number" ? `${obj.x}px` : obj.x;
+      const top = typeof obj.y === "number" ? `${obj.y}px` : obj.y;
+      const width = typeof obj.width === "number" ? `${obj.width}px` : obj.width;
+      const height = typeof obj.height === "number" ? `${obj.height}px` : obj.height;
+      const label = obj.label || "";
+
+      if (obj.fixedSection) {
+        // Fixed section rendering
         layoutHTML += `
       <div class="canvas-object fixed-canvas-object"
-           id="fixed-canvas-object-${sectionValue}"
-           style="position: absolute; left: ${110 + idx * 30}px; top: 0px; width: 323px; min-height: 60px;">
+           id="fixed-canvas-object-${obj.fixedSection}"
+           style="position: absolute; left: ${left}; top: ${top}; width: ${width}; min-height: ${height};">
         <div style="display:flex; justify-content: space-between;">
           <select disabled style="width:fit-content;">
-            <option value="${sectionValue}" selected>Section ${sectionValue}</option>
+            <option value="${obj.fixedSection}" selected>Section ${obj.fixedSection}</option>
           </select>
           <div style="background: #c2e2fc; border: 1px solid #6db6f8; height: fit-content; border-radius: 5px; padding:3px 7px;">
-            <p style="margin: 0">fixed</p>
+            <p style="margin: 0"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               class="lucide lucide-pin-icon lucide-pin">
+            <path d="M12 17v5"/>
+            <path
+              d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>
+          </svg></p>
           </div>
         </div>
-        <div class="dropdown-content" id="content-for-fixed-object-section-${sectionValue}" style="display: block;"></div>
+        <div class="dropdown-content" id="content-for-fixed-object-section-${obj.fixedSection}" style="display: block;"></div>
       </div>
       `;
-      });
-    }
-
-    // --- Add all dynamic canvas objects as before ---
-    const canvasObjects = canvasRef.current.querySelectorAll(".canvas-object");
-    canvasObjects.forEach((el, index) => {
-      const left = el.style.left;
-      const top = el.style.top;
-      const width = el.style.width;
-      const height = el.style.height;
-      const textContent = el.querySelector('.object-text')?.textContent || el.textContent.trim();
-      const uniqueId = `canvas-object-${index}`;
-      let dropdownHTML = `<div style="display:flex; justify-content: space-between;"><select id="sectionSelect" onchange="showContent(this, '${uniqueId}')" style="width:fit-content;">
-      <option value="">-- Select --</option>`;
-      for (let i = 1; i <= 30; i++) {
-        dropdownHTML += `<option value="${i}">Section ${i}</option>`;
-      }
-      dropdownHTML += "</select>";
-      dropdownHTML += `<button
-      style="align-self: flex-start; margin:0; padding:8px 12px; position: relative; cursor: pointer;"
-      class="addRuleBtn"
-      title="Edit Rule"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        fill="currentColor"
-        viewBox="0 0 16 16"
+      } else {
+        // Regular selectable section rendering
+        let dropdownHTML = `<div style="display:flex; justify-content: space-between;"><select id="sectionSelect" onchange="showContent(this, '${uniqueId}')" style="width:fit-content;">
+        <option value="">-- Select --</option>`;
+        for (let i = 1; i <= 30; i++) {
+          dropdownHTML += `<option value="${i}">Section ${i}</option>`;
+        }
+        dropdownHTML += `</select>
+      <button
+        style="align-self: flex-start; margin:0; padding:8px 12px; position: relative; cursor: pointer;"
+        class="addRuleBtn"
+        title="Edit Rule"
       >
-        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2L14 4.793 13.207 5.586 10.414 2.793 11.207 2zm1.586 3L12 4.793 3 13.793V14h.207L13.793 5z"/>
-      </svg>
-    </button>
-    </div>`;
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          fill="currentColor"
+          viewBox="0 0 16 16"
+        >
+          <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2L14 4.793 13.207 5.586 10.414 2.793 11.207 2zm1.586 3L12 4.793 3 13.793V14h.207L13.793 5z"/>
+        </svg>
+      </button>
+      </div>`;
 
-      let dropdownContentHTML = "";
-      for (let i = 1; i <= 30; i++) {
-        const content = `<p><strong>Dummy Content for ${textContent} - Option ${i}:</strong> This is the content for option ${i}.</p>
-        <p>Additional information or content for this option can be added here.</p>`;
-        dropdownContentHTML += `
-        <div class="dropdown-content" id="content-for-${uniqueId}-option-${i}" style="display: none;">
-          ${content}
+        let dropdownContentHTML = "";
+        for (let i = 1; i <= 30; i++) {
+          const content = `<p><strong>Dummy Content for ${label} - Option ${i}:</strong> This is the content for option ${i}.</p>
+          <p>Additional information or content for this option can be added here.</p>`;
+          dropdownContentHTML += `
+          <div class="dropdown-content" id="content-for-${uniqueId}-option-${i}" style="display: none;">
+            ${content}
+          </div>
+        `;
+        }
+
+        layoutHTML += `
+        <div class="canvas-object" id="${uniqueId}" style="position: absolute; left: ${left}; top: ${top}; width: ${width}; min-height: ${height};">
+          ${dropdownHTML}
+          ${dropdownContentHTML}
         </div>
       `;
       }
-
-      layoutHTML += `
-      <div class="canvas-object" id="${uniqueId}" style="position: absolute; left: ${left}; top: ${top}; width: ${width}; min-height: ${height};">
-        ${dropdownHTML}
-        ${dropdownContentHTML}
-      </div>`;
     });
 
     layoutHTML += `
@@ -617,7 +644,6 @@ const LayoutLibraryAdminPortal = () => {
 `;
     return layoutHTML;
   };
-
   // Render
   return (
     <>
@@ -837,7 +863,7 @@ const LayoutLibraryAdminPortal = () => {
           cursor: move;
           padding: 10px;
           box-sizing: border-box;
-          min-width: 150px;
+          min-width: 323px;
           min-height: 60px;
           transition: height 0.3s ease;
           overflow: hidden;
@@ -846,6 +872,7 @@ const LayoutLibraryAdminPortal = () => {
           justify-content: center;
         }
         .canvas-object .object-text {
+            margin-top: 18px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -876,6 +903,10 @@ const LayoutLibraryAdminPortal = () => {
         }
         h4 {
           margin: 0 0  10px 8px;
+        }
+        .export-mode select,
+        .export-mode .fixed-remove-btn {
+          display: none !important;
         }
       `}</style>
       <NavMenu activeItem={0}/>
@@ -968,50 +999,50 @@ const LayoutLibraryAdminPortal = () => {
             <h2>Properties</h2>
             <label>Layout Name</label>
             <input type="text" value={layoutName} onChange={e => setLayoutName(e.target.value)}/>
-            <label>Add Fixed Sections</label>
-            <div style={{marginBottom:"16px"}}>
-              <select value="" onChange={handleAddFixedSection} style={{margin: 0}}>
-                <option value="">Select Section</option>
-                {fixedSectionOptions.map(opt => (
-                  <option
-                    key={opt.value}
-                    value={opt.value}
-                    disabled={fixedSections.includes(opt.value)}
-                  >
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              {fixedSections.map(val => (
-                <div key={val} style={{
-                  display: "flex",
-                  alignItems: "center",
-                  background: "#fff8dc",
-                  border: "1px solid #6db6f8",
-                  borderRadius: "5px",
-                  padding: "4px 8px",
-                  margin: "6px 0",
-                  justifyContent: "space-between"
-                }}>
-                  <span>{`Section ${val}`}</span>
-                  <button
-                    style={{
-                      background: "#f44",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "3px",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      marginLeft: "8px",
-                      padding: "0 8px"
-                    }}
-                    onClick={() => handleDeleteFixedSection(val)}
-                    title="Delete"
-                  >×
-                  </button>
-                </div>
-              ))}
-            </div>
+            {/*<label>Add Fixed Sections</label>*/}
+            {/*<div style={{marginBottom: "16px"}}>*/}
+            {/*  <select value="" onChange={handleAddFixedSection} style={{margin: 0}}>*/}
+            {/*    <option value="">Select Section</option>*/}
+            {/*    {fixedSectionOptions.map(opt => (*/}
+            {/*      <option*/}
+            {/*        key={opt.value}*/}
+            {/*        value={opt.value}*/}
+            {/*        disabled={fixedSections.includes(opt.value)}*/}
+            {/*      >*/}
+            {/*        {opt.label}*/}
+            {/*      </option>*/}
+            {/*    ))}*/}
+            {/*  </select>*/}
+            {/*  {fixedSections.map(val => (*/}
+            {/*    <div key={val} style={{*/}
+            {/*      display: "flex",*/}
+            {/*      alignItems: "center",*/}
+            {/*      background: "#fff8dc",*/}
+            {/*      border: "1px solid #6db6f8",*/}
+            {/*      borderRadius: "5px",*/}
+            {/*      padding: "4px 8px",*/}
+            {/*      margin: "6px 0",*/}
+            {/*      justifyContent: "space-between"*/}
+            {/*    }}>*/}
+            {/*      <span>{`Section ${val}`}</span>*/}
+            {/*      <button*/}
+            {/*        style={{*/}
+            {/*          background: "#f44",*/}
+            {/*          color: "#fff",*/}
+            {/*          border: "none",*/}
+            {/*          borderRadius: "3px",*/}
+            {/*          fontSize: "12px",*/}
+            {/*          cursor: "pointer",*/}
+            {/*          marginLeft: "8px",*/}
+            {/*          padding: "0 8px"*/}
+            {/*        }}*/}
+            {/*        onClick={() => handleDeleteFixedSection(val)}*/}
+            {/*        title="Delete"*/}
+            {/*      >×*/}
+            {/*      </button>*/}
+            {/*    </div>*/}
+            {/*  ))}*/}
+            {/*</div>*/}
             <label>Width</label>
             <input type="number" value={propWidth} onChange={handlePropWidthChange} disabled={!selectedId}/>
             <label>Height</label>
@@ -1049,10 +1080,11 @@ const LayoutLibraryAdminPortal = () => {
                 // backgroundSize: '20px 20px',
               }}
             >
+              {/*<div style={{position: 'relative', width: '100%', height: '100%'}}>*/}
               {layoutObjects.map(obj => (
                 <div
                   key={obj.id}
-                  className={`canvas-object${selectedId === obj.id ? ' selected' : ''}`}
+                  className={`canvas-object${selectedId === obj.id ? ' selected' : ''}${obj.fixedSection ? ' fixed-canvas-object' : ''}`}
                   style={{
                     left: obj.x,
                     top: obj.y,
@@ -1060,6 +1092,10 @@ const LayoutLibraryAdminPortal = () => {
                     height: obj.height,
                     textAlign: obj.align,
                     position: 'absolute',
+                    background: obj.fixedSection ? '#fff8dc' : undefined,
+                    border: obj.fixedSection ? '2px solid #f7b500' : undefined,
+                    zIndex: obj.fixedSection ? 10 : undefined,
+                    boxSizing: 'border-box'
                   }}
                   onClick={() => selectObject(obj.id)}
                   tabIndex={0}
@@ -1084,6 +1120,58 @@ const LayoutLibraryAdminPortal = () => {
                     window.addEventListener('mouseup', onUp);
                   }}
                 >
+                  {/* Top-right controls */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    zIndex: 20,
+                    gap: 4
+                  }}>
+                    <select
+                      style={{minWidth: 120}}
+                      value={obj.fixedSection || ""}
+                      onChange={e => {
+                        const val = e.target.value ? Number(e.target.value) : null;
+                        updateObject(obj.id, {fixedSection: val});
+                      }}
+                    >
+                      <option value="">Make fixed section</option>
+                      {Array.from({length: 30}, (_, i) => i + 1).map(sectionNum => (
+                        <option
+                          key={sectionNum}
+                          value={sectionNum}
+                          disabled={
+                            layoutObjects.some(o => o.fixedSection === sectionNum && o.id !== obj.id)
+                          }
+                        >
+                          {getLabel(sectionNum)}
+                        </option>
+                      ))}
+                    </select>
+                    {obj.fixedSection && (
+                      <button
+                        style={{
+                          background: "#f44",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "3px",
+                          fontSize: "12px",
+                          cursor: "pointer",
+                          marginLeft: "4px",
+                          padding: "0 8px"
+                        }}
+                        className="fixed-remove-btn"
+                        onClick={e => {
+                          e.stopPropagation();
+                          updateObject(obj.id, {fixedSection: null});
+                        }}
+                        title="Remove fixed"
+                      >×</button>
+                    )}
+                  </div>
                   <span className="object-text">{obj.label}</span>
                   {/* Resizer */}
                   <div
@@ -1109,7 +1197,7 @@ const LayoutLibraryAdminPortal = () => {
                       window.addEventListener('mouseup', onUp);
                     }}
                   />
-                  {/* Delete button (optional) */}
+                  {/* Delete button (optional, hidden by default) */}
                   <button
                     className="deleteSectionBtn"
                     style={{position: 'absolute', top: 2, right: 2, display: 'none'}}
@@ -1122,6 +1210,8 @@ const LayoutLibraryAdminPortal = () => {
                   </button>
                 </div>
               ))}
+
+              {/*</div>*/}
             </div>
           </div>
         </div>
