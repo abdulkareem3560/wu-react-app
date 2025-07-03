@@ -21,7 +21,6 @@
     "quill": "^2.0.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-draft-wysiwyg": "^1.15.0",
     "react-quill-new": "^3.4.6",
     "react-router-dom": "^7.6.2",
     "tinymce": "^7.9.1",
