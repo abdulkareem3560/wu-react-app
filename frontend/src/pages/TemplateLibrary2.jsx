@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import NavMenu from "../components/NavMenu.jsx";
-import {RuleModal} from "../components/RuleModal.jsx";
+import {ArrowLeft} from "lucide-react";
 
 let currentVariableRuleState = {};
 
@@ -25,9 +25,6 @@ const generateSectionOptions = () => {
 
 const TemplateLibrary = () => {
   const editorRef = useRef(null);
-  const [rules, setRules] = useState([]);
-  const [logicExpression, setLogicExpression] = useState('');
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [section, setSection] = useState('');
   const [fontFamily, setFontFamily] = useState('');
   const [fontSize, setFontSize] = useState('');
@@ -44,25 +41,15 @@ const TemplateLibrary = () => {
   const [activeTab, setActiveTab] = useState("section");
   const [sectionLogic, setSectionLogic] = useState('');
   const [sectionLogicExpr, setSectionLogicExpr] = useState('');
-   const [variableLogic, setVariableLogic] = useState({});
-  const [displayIfExists, setDisplayIfExists] = useState({});
+  let globalVariableKeys = useRef([]);
+  const [fixed, setFixed] = useState(Array(30).fill(true));
 
-  const openModal = () => setIsModalVisible(true);
-  const closeModal = () => setIsModalVisible(false);
-
-  const handleDisplayToggle = (variable) => {
-    setDisplayIfExists(prev => ({ ...prev, [variable]: !prev[variable] }));
-  };
-
-  const handleLogicChange = (variable, value) => {
-    setVariableLogic(prev => ({ ...prev, [variable]: value }));
-  };
 
   const handleExtractVariables = () => {
     const editorHTML = editorRef.current.innerHTML;
     const matches = [...editorHTML.matchAll(/{{\s*([\w\d_]+)\s*}}/g)];
     const uniqueVars = [...new Set(matches.map(m => m[1]))];
-    setVariables(uniqueVars);
+    setVariables(globalVariableKeys.current);
 
     const updatedVariableTable = uniqueVars.map((varName) => ({
       variable: varName, value: ''
@@ -111,7 +98,7 @@ const TemplateLibrary = () => {
       textAlign: editor.style.textAlign,
     };
 
-    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-section/${sectionKey}`, {
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/sections/${sectionKey}`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({content: wrappedContent, styles}),
@@ -119,6 +106,10 @@ const TemplateLibrary = () => {
       .then((res) => res.text())
       .then((data) => alert(data))
       .catch((err) => alert("Save failed: " + err));
+  }
+
+  function closeModal() {
+    document.getElementById("ruleModal").style.display = "none";
   }
 
   function addSectionRule() {
@@ -235,7 +226,7 @@ const TemplateLibrary = () => {
       sectionRules, variableRules, sectionLogic, variableLogic,
     };
 
-    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-rules/${sectionKey}`, {
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/rules/${sectionKey}`, {
       method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(rulesToSave),
     })
       .then((res) => res.text())
@@ -268,7 +259,7 @@ const TemplateLibrary = () => {
   }
 
   const loadSectionContent = () => {
-    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/get-section/${encodeURIComponent(section)}`)
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/sections/${encodeURIComponent(section)}`)
       .then(res => res.json())
       .then(data => {
         const editor = editorRef.current;
@@ -301,6 +292,23 @@ const TemplateLibrary = () => {
     setActiveTab(tabId);
   };
 
+  const extractNumber = () => {
+    const index = parseInt(section.split("-")[1]) - 1;
+    return index;
+  }
+
+  function loadGlobalVariableKeys() {
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/globals`)
+      .then((res) => res.json())
+      .then((data) => {
+        globalVariableKeys.current = Object.keys(data);
+      })
+      .catch((err) => {
+        console.error("Failed to load global variables:", err);
+        globalVariableKeys.current = [];
+      });
+  }
+
   function fetchAndDisplayRulesForSection(sectionId) {
     if (!sectionId) {
       document.getElementById("savedSectionRules").innerHTML = "";
@@ -308,7 +316,7 @@ const TemplateLibrary = () => {
       return;
     }
 
-    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/get-rules/${sectionId}`)
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/rules/${sectionId}`)
       .then((res) => res.json())
       .then((data) => {
         const {
@@ -730,35 +738,167 @@ const TemplateLibrary = () => {
     });
   }
 
-  const openRuleModalForSection = (sectionId) => {
+  function openRuleModalForSection(sectionId) {
     if (!sectionId) {
       alert("Please select a valid section");
       return;
     }
+    const modal = document.getElementById("ruleModal");
+    modal.style.display = "flex";
 
-    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/get-rules/${encodeURIComponent(sectionId)}`)
+    // Clear previous content
+    const sectionWrapper = document.getElementById("sectionRulesWrapper");
+    const variableContainer = document.getElementById("variableRulesContainer");
+    const sectionLogicInput = document.getElementById("sectionLogicInput");
+    sectionWrapper.innerHTML = "";
+    variableContainer.innerHTML = "";
+    sectionLogicInput.value = "";
+
+    // Fetch saved rules for this section
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/rules/${encodeURIComponent(sectionId)}`)
       .then((res) => res.json())
       .then((data) => {
         const {
-          sectionRules = [],
-          sectionLogic = null,
-          variableRules = [],
-          variableLogic = [],
-          displayIfExists = {},
+          sectionRules = [], variableRules = [], sectionLogic = null, variableLogic = [], displayIfExists = {},
         } = data;
 
-        // Set section rules and logic
-        setRules(sectionRules);
-        setLogicExpression(sectionLogic?.expression || '');
-        // TODO: Use setState to handle variableRules and displayIfExists when variable modal is implemented
-        setIsModalVisible(true);
+        // Populate section rules in the modal
+        if (sectionRules.length > 0) {
+          sectionRules.forEach((rule, idx) => {
+            const includeLogic = idx < sectionRules.length - 1;
+            const row = createRuleRow({
+              field: rule.field,
+              condition: rule.condition,
+              value: rule.value,
+              logic: includeLogic ? sectionLogic?.expression || "AND" : undefined,
+            }, true, includeLogic);
+
+            const label = document.createElement("span");
+            label.textContent = `${idx + 1}. `;
+            label.style.marginRight = "8px";
+            row.prepend(label);
+
+            sectionWrapper.appendChild(row);
+          });
+
+          if (sectionLogic && sectionLogic.expression) {
+            sectionLogicInput.value = sectionLogic.expression;
+          }
+        } else {
+          addSectionRule();
+        }
+
+        // Group variable rules by variable name
+        const groupedVars = {};
+        variableRules.forEach((rule) => {
+          if (!groupedVars[rule.variable]) groupedVars[rule.variable] = [];
+          groupedVars[rule.variable].push(rule);
+        });
+
+        variables.forEach((variable) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "variable-group";
+          wrapper.style.marginBottom = "20px";
+
+          const labelWrapper = document.createElement("div");
+          labelWrapper.style.display = "flex";
+          labelWrapper.style.alignItems = "center";
+          labelWrapper.style.marginBottom = "5px";
+          labelWrapper.style.gap = "10px";
+
+          const label = document.createElement("span");
+          label.textContent = variable;
+          label.className = "rule-label";
+          label.style.fontWeight = "bold";
+
+          const checkboxContainer = document.createElement("div");
+          checkboxContainer.style.display = "flex";
+          checkboxContainer.style.alignItems = "center";
+          checkboxContainer.style.marginLeft = "auto";
+          checkboxContainer.style.gap = "2px";
+
+          const displayCheckbox = document.createElement("input");
+          displayCheckbox.type = "checkbox";
+          displayCheckbox.className = "display-if-exists";
+          displayCheckbox.checked = displayIfExists[variable] || false;
+
+          const checkboxLabel = document.createElement("label");
+          checkboxLabel.textContent = "Display if value exists";
+          checkboxLabel.style.marginLeft = "5px";
+          checkboxLabel.style.fontWeight = "normal";
+
+          checkboxContainer.appendChild(displayCheckbox);
+          checkboxContainer.appendChild(checkboxLabel);
+
+          labelWrapper.appendChild(label);
+          labelWrapper.appendChild(checkboxContainer);
+
+          wrapper.appendChild(labelWrapper);
+
+          const rulesContainer = document.createElement("div");
+          rulesContainer.className = "rules-container";
+          rulesContainer.style.marginTop = "5px";
+
+          const varRules = groupedVars[variable] || [];
+
+          if (varRules.length > 0) {
+            varRules.forEach((ruleObj, idx) => {
+              const row = createRuleRow({
+                field: ruleObj.field, condition: ruleObj.condition, value: ruleObj.value,
+              }, true, false);
+
+              const numberLabel = document.createElement("span");
+              numberLabel.textContent = `${idx + 1}. `;
+              numberLabel.style.marginRight = "8px";
+
+              row.prepend(numberLabel);
+              rulesContainer.appendChild(row);
+            });
+          } else {
+            const row = createRuleRow({}, false, false);
+            const numberLabel = document.createElement("span");
+            numberLabel.textContent = "1. ";
+            numberLabel.style.marginRight = "8px";
+            row.prepend(numberLabel);
+            rulesContainer.appendChild(row);
+          }
+
+          wrapper.appendChild(rulesContainer);
+          const logicObj = variableLogic.find((vl) => vl.variable === variable);
+          const logicExpression = logicObj ? logicObj.expression : "";
+
+          const logicInput = document.createElement("input");
+          logicInput.type = "text";
+          logicInput.placeholder = `Enter logic like 1 OR (2 AND 3) for ${variable}`;
+          logicInput.className = "variable-logic";
+          logicInput.style.width = "99%";
+          logicInput.style.marginTop = "10px";
+          logicInput.value = logicExpression;
+
+          wrapper.appendChild(logicInput);
+
+          const addBtn = document.createElement("button");
+          addBtn.textContent = "+ Add Rule";
+          addBtn.style.margin = "10px 0";
+          addBtn.onclick = () => {
+            const currentRules = collectCurrentVariableRules();
+            if (!currentRules[variable]) currentRules[variable] = {rules: [], logic: ""};
+            currentRules[variable].rules.push({
+              field: "", condition: "", value: "",
+            });
+            populateVariableRules(currentRules);
+          };
+
+          wrapper.appendChild(addBtn);
+
+          variableContainer.appendChild(wrapper);
+        });
       })
       .catch((err) => {
         console.error("Failed to load rules for section:", err);
         alert("Failed to load rules");
       });
-  };
-
+  }
 
   const handleEditorChange = () => {
     const newContent = editorRef.current.innerHTML;
@@ -774,6 +914,7 @@ const TemplateLibrary = () => {
     generateSectionOptions();
     // Load font sizes
     generateFontSizeOptions();
+    loadGlobalVariableKeys();
   }, []);
 
   useEffect(() => {
@@ -799,6 +940,13 @@ const TemplateLibrary = () => {
     updatedTable[index].value = value;
     setVariableTable(updatedTable);
   };
+
+  const handleInputChange = () => {
+    const index = extractNumber();
+    const temp = [...fixed];
+    temp[index] = !temp[index];
+    setFixed(temp)
+  }
 
   const updateFontWeight = (weight) => {
     if (!weight) return;
@@ -828,23 +976,6 @@ const TemplateLibrary = () => {
     selection.removeAllRanges();
     selection.addRange(newRange);
   }
-
-  const renderTabs = () => (
-    <div className="tabs">
-      <div
-        className={`tab ${activeTab === 'section' ? 'active' : ''}`}
-        onClick={() => setActiveTab('section')}
-      >
-        Section
-      </div>
-      <div
-        className={`tab ${activeTab === 'variables' ? 'active' : ''}`}
-        onClick={() => setActiveTab('variables')}
-      >
-        Variables
-      </div>
-    </div>
-  );
 
   return (<>
       <style>
@@ -1119,7 +1250,7 @@ const TemplateLibrary = () => {
           width: 160px;
       }
       
-      label {
+      .form-group label {
           font-weight: 600;
           margin-bottom: 4px;
           font-size: 0.9rem;
@@ -1430,7 +1561,10 @@ const TemplateLibrary = () => {
       <main>
         <div className="top-row">
           <h2>Template Library</h2>
-          <a href="admin" className="back-home">Back to Home</a>
+          <a href="/" className="back-home" style={{display: "flex"}}>
+            <ArrowLeft size={16}/>
+            Back to Home
+          </a>
         </div>
 
         <div className="container">
@@ -1521,10 +1655,32 @@ const TemplateLibrary = () => {
           </div>
         </div>
 
+        {section && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              marginTop: "20px"
+            }}
+          >
+            <input
+              type="checkbox"
+              id="myCheckbox"
+              onChange={handleInputChange}
+            />
+            <label
+              htmlFor="myCheckbox"
+              style={{whiteSpace: "nowrap", fontWeight:600}}
+            >
+              Make the section static
+            </label>
+          </div>
+        )}
         <div
           id="editor"
           ref={editorRef}
-          // contentEditable="true"
+          contentEditable={fixed[extractNumber()]}
           placeholder="Type your content with {{variables}} here..."
           // Render content
           onInput={handleEditorChange} // Handle content updates
@@ -1620,24 +1776,69 @@ const TemplateLibrary = () => {
 
           </div>
         </div>
+        <div className="modal" id="ruleModal">
+          <div className="modal-content">
+            <span className="close-btn" onClick={closeModal}>&times;</span>
 
-        <RuleModal
-          visible={isModalVisible}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          rules={rules}
-          setRules={setRules}
-          onClose={() => setIsModalVisible(false)}
-          logicExpression={logicExpression}
-          setLogicExpression={setLogicExpression}
-          variables={variables}
-          variableTable={variableTable}
-          handleVariableChange={handleVariableChange}
-          displayIfExists={displayIfExists}
-          handleDisplayToggle={handleDisplayToggle}
-          variableLogic={variableLogic}
-          handleLogicChange={handleLogicChange}
-        />
+            {/* Tab navigation */}
+            <div className="tabs">
+              <div
+                className={`tab ${activeTab === 'section' ? 'active' : ''}`}
+                onClick={() => switchTab('section')}
+              >
+                Section
+              </div>
+              <div
+                className={`tab ${activeTab === 'variables' ? 'active' : ''}`}
+                onClick={() => switchTab('variables')}
+              >
+                Variables
+              </div>
+            </div>
+
+            {/* Tab content */}
+            <div id="section" className={`tab-content ${activeTab === 'section' ? 'active' : ''}`}>
+              <div id="sectionRulesContainer"></div>
+              <div id="sectionRulesWrapper"></div>
+              <button onClick={addSectionRule}>+ Add Section Rule</button>
+
+              <div style={{marginTop: '10px'}}>
+                <label htmlFor="sectionLogicInput">
+                  <strong>Logic Expression (e.g., 1 OR (2 AND 3))</strong>
+                </label>
+                <br/>
+                <input
+                  id="sectionLogicInput"
+                  type="text"
+                  style={{width: '100%', padding: '4px'}}
+                  placeholder="Enter logic like 1 OR (2 AND 3)"
+                  value={sectionLogic}
+                  onChange={(e) => setSectionLogic(e.target.value)}
+                />
+              </div>
+
+              <div style={{marginTop: '10px'}}>
+                <label htmlFor="sectionLogicExpr">
+                  <strong>Section Logic Expression</strong> (e.g., "1 OR (2 AND 3)"):</label>
+                <input
+                  type="text"
+                  id="sectionLogicExpr"
+                  style={{width: '99%'}}
+                  value={sectionLogicExpr}
+                  onChange={(e) => setSectionLogicExpr(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div id="variables" className={`tab-content ${activeTab === 'variables' ? 'active' : ''}`}>
+              <div id="variableRulesContainer"></div>
+            </div>
+
+            <button onClick={saveRules} style={{margin: '10px 0'}}>
+              Save Rules
+            </button>
+          </div>
+        </div>
 
         <div className="saved-rules" id="savedRulesWrapper" style={{display: "none"}}>
           <div id="savedSectionRules" className="rule-section"></div>

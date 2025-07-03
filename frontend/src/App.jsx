@@ -3,14 +3,16 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import Admin from './pages/Admin';
 import Wizard from './pages/Wizard';
+import Wizard1 from './pages/Wizard1';
 import LayoutLibrary from "./pages/LayoutLibrary";
 import TemplateLibrary from "./pages/TemplateLibrary";
-import TemplateLibrary3 from "./pages/TemplateLibrary3";
+import TemplateLibrary4 from "./pages/TemplateLibrary4";
 import GlobalAttributes from "./pages/GlobalAttributes";
 import ResourceBundles from "./pages/ResourceBundles.jsx";
 import ImageLibrary from "./pages/ImageLibrary.jsx";
 import CSSLibrary from "./pages/CSSLibrary.jsx";
 import SavedReceipts from "./pages/SavedReceipts.jsx";
+import SavedReceipts2 from "./pages/SavedReceipts2.jsx";
 import ContentUser2 from "./pages/ContentUser2.jsx";
 
 import Template1 from "./components/Template1.jsx";
@@ -21,12 +23,12 @@ const routes = [
   { path: "/admin", element: <Admin /> },
   { path: "/wizard", element: <Wizard /> },
   { path: "/layout-library", element: <LayoutLibrary /> },
-  { path: "/template-library", element: <TemplateLibrary /> },
+  { path: "/template-library", element: <TemplateLibrary4 /> },
   { path: "/global-attributes", element: <GlobalAttributes /> },
   { path: "/resource-bundles", element: <ResourceBundles /> },
   { path: "/image-library", element: <ImageLibrary /> },
   { path: "/css-library", element: <CSSLibrary /> },
-  { path: "/saved-receipts", element: <SavedReceipts /> },
+  { path: "/saved-receipts", element: <SavedReceipts2 /> },
   { path: "/content-user", element: <ContentUser2 /> },
   { path: "/template1", element: <Template1 /> },
   { path: "/template2", element: <Template2 /> }

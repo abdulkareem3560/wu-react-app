@@ -14,7 +14,7 @@ const LabelSettings = () => {
 
   const loadResourceBundle = async (language) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/load-resource-bundle?lang=${language}`);
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/resources/bundle?lang=${language}`);
       const data = await res.json();
       if (data.success) {
         if (Object.entries(data.content).length === 0) {
@@ -46,7 +46,7 @@ const LabelSettings = () => {
   const saveResourceBundle = async () => {
     const data = Object.fromEntries(keyValuePairs.map(([key, value]) => [key.trim(), value.trim()]));
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-resource-bundle?lang=${currentLanguage}`, {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/resources/bundle?lang=${currentLanguage}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data),

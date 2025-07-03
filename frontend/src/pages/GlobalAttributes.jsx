@@ -27,7 +27,7 @@ const DataSettings = () => {
 
   const loadDataMapping = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/datamapping`);
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/globals/datamapping`);
       const data = await res.json();
       setDataMappings(Object.entries(data));
     } catch (error) {
@@ -68,7 +68,7 @@ const DataSettings = () => {
     }, {});
 
     try {
-      await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/datamapping`, {
+      await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/globals/datamapping`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(mappingsData),

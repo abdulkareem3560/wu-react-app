@@ -898,7 +898,7 @@ function renderSavedRules() {
 let globalVariableKeys = [];
 
 function loadGlobalVariableKeys() {
-  fetch("/api/global-variables")
+  fetch("/globals")
     .then((res) => res.json())
     .then((data) => {
       globalVariableKeys = Object.keys(data);

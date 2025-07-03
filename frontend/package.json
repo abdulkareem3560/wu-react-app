@@ -10,12 +10,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tinymce/tinymce-react": "^6.2.1",
+    "@uiw/react-md-editor": "^4.0.7",
+    "draft-js": "^0.11.7",
+    "draftjs-to-html": "^0.9.1",
+    "html-to-draftjs": "^1.5.0",
     "html2canvas": "^1.4.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.516.0",
+    "quill": "^2.0.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-draft-wysiwyg": "^1.15.0",
+    "react-quill-new": "^3.4.6",
     "react-router-dom": "^7.6.2",
+    "tinymce": "^7.9.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

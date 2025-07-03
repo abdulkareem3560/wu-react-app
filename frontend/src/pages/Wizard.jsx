@@ -10,7 +10,7 @@ const Wizard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/get-layout-images`)
+    fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/layouts/images`)
       .then((res) => res.json())
       .then((layoutData) => {
         const container = document.getElementById('uploaded-images');
@@ -120,7 +120,7 @@ const Wizard = () => {
       `;
 
         // Continue with your fetch request...
-        fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-receipt-html`, {
+        fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/receipts/save`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({name, html: fullHTML}),

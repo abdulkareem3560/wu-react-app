@@ -11,7 +11,7 @@ const SavedReceipts = () => {
   useEffect(() => {
     const fetchReceipts = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/saved-receipts`);
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/receipts/save`);
 
         const data = await response.json();
         setReceipts(data);

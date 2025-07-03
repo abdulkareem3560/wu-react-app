@@ -288,7 +288,7 @@ const LayoutLibraryAdminPortal = () => {
       const filenameBase = `${layoutName || 'default'}_${layoutRegion || 'region'}`;
 
       // Send to backend
-      await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/save-layout`, {
+      await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/layouts/save`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({

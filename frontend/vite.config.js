@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [
     react(),
   ],
+
   server: {
     proxy: {
       '/api': {
@@ -21,6 +22,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
+    include: ['react-draft-wysiwyg', 'draft-js', 'draftjs-to-html'],
     esbuildOptions: {
       define: {
         global: 'globalThis', // Polyfill 'global'
