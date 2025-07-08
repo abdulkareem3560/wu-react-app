@@ -236,6 +236,7 @@ document.querySelectorAll(".addRuleBtn").forEach((button) => {
 });
 
 function openRuleModalForSection(sectionId) {
+  console.log(sectionId, "here5......")
   if (!sectionId) {
     alert("Please select a valid section");
     return;
@@ -253,7 +254,7 @@ function openRuleModalForSection(sectionId) {
 
   // Fetch saved rules for this section
   fetch(
-    `/get-rules/${encodeURIComponent(sectionId)}?region=${encodeURIComponent(
+    `/rules/${encodeURIComponent(sectionId)}?region=${encodeURIComponent(
       currentRegion
     )}`
   )
@@ -327,6 +328,8 @@ function openRuleModalForSection(sectionId) {
         checkboxContainer.style.alignItems = "center";
         checkboxContainer.style.marginLeft = "auto";
         checkboxContainer.style.gap = "2px";
+        checkboxContainer.style.whiteSpace = "nowrap";
+        checkboxContainer.style.flexWrap = "nowrap";
 
         const displayCheckbox = document.createElement("input");
         displayCheckbox.type = "checkbox";
@@ -373,7 +376,7 @@ function openRuleModalForSection(sectionId) {
             rulesContainer.appendChild(row);
           });
         } else {
-          const row = createRuleRow({}, false, false);
+          const row = createRuleRow({}, true, false);
           const numberLabel = document.createElement("span");
           numberLabel.textContent = "1. ";
           numberLabel.style.marginRight = "8px";
@@ -563,7 +566,7 @@ function populateVariableRules(existingRules = {}) {
     const previous = existingRules[key];
     if (previous && previous.rules.length > 0) {
       previous.rules.forEach((ruleObj, idx) => {
-        const row = createRuleRow(ruleObj, false, false); // no delete, no logic
+        const row = createRuleRow(ruleObj, true, false); // no delete, no logic
         const numberLabel = document.createElement("span");
         numberLabel.textContent = `${idx + 1}. `;
         numberLabel.style.marginRight = "8px";
@@ -573,7 +576,7 @@ function populateVariableRules(existingRules = {}) {
       logicInput.value = previous.logic || "";
     } else {
       // Default to one empty rule
-      const row = createRuleRow({}, false, false);
+      const row = createRuleRow({}, true, false);
       const numberLabel = document.createElement("span");
       numberLabel.textContent = `1. `;
       numberLabel.style.marginRight = "8px";
@@ -601,6 +604,8 @@ function populateVariableRules(existingRules = {}) {
     checkboxContainer.style.alignItems = "center";
     checkboxContainer.style.marginLeft = "auto";
     checkboxContainer.style.gap = "2px";
+    checkboxContainer.style.whiteSpace = "nowrap";
+    checkboxContainer.style.flexWrap = "nowrap";
 
     checkboxContainer.appendChild(displayCheckbox);
     checkboxContainer.appendChild(checkboxLabel);
@@ -769,7 +774,7 @@ function saveRules() {
   };
 
   fetch(
-    `/save-rules/${sectionKey}?region=${encodeURIComponent(currentRegion)}`,
+    `/rules/${sectionKey}?region=${encodeURIComponent(currentRegion)}`,
     {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -923,10 +928,10 @@ for (let i = 1; i <= 30; i++) {
 document.getElementById("sectionSelect").addEventListener("change", (e) => {
   const selectedSection = e.target.value;
   // your existing content load function
-  // loadSectionContent();
+  loadSectionContent();
 
   // fetch and display saved rules
-  // fetchAndDisplayRulesForSection(selectedSection);
+  fetchAndDisplayRulesForSection(selectedSection);
 });
 
 function fetchAndDisplayRulesForSection(sectionId) {
@@ -936,7 +941,7 @@ function fetchAndDisplayRulesForSection(sectionId) {
     return;
   }
 
-  fetch(`/get-rules/${sectionId}`)
+  fetch(`/rules/${sectionId}`)
     .then((res) => res.json())
     .then((data) => {
       const {
@@ -1062,7 +1067,7 @@ function loadSectionContent() {
 
   if (!sectionKey) return;
 
-  fetch(`/get-section/${encodeURIComponent(sectionKey)}`)
+  fetch(`/sections/${encodeURIComponent(sectionKey)}`)
     .then((res) => res.json())
     .then((data) => {
       const editor = document.getElementById("editor");

@@ -123,7 +123,7 @@ const TemplateLibrary = () => {
     const editorHTML = editorRef.current.innerHTML;
     const matches = [...editorHTML.matchAll(/{{\s*([\w\d_]+)\s*}}/g)];
     const uniqueVars = [...new Set(matches.map(m => m[1]))];
-    setVariables(globalVariableKeys.current);
+    setVariables(uniqueVars);
 
     const updatedVariableTable = uniqueVars.map((varName) => ({
       variable: varName,
@@ -161,6 +161,8 @@ const TemplateLibrary = () => {
       width: ${editor.style.width || "auto"};
       background-color: #ffffff;
       text-align: ${editor.style.textAlign || "left"};
+      padding-top: ${editor.style.paddingTop || "0"};
+      padding-bottom: ${editor.style.paddingBottom || "0"};
       margin: 0 auto;
       box-sizing: border-box;
     `;
@@ -346,7 +348,7 @@ const TemplateLibrary = () => {
         const editor = editorRef.current;
         if (!editor) return;
         editor.innerHTML = sanitizeLoadedContent(data.content || "");
-        setVariables(data.variables || []);
+        // setVariables(data.variables || []);
         setVariableTable(data.variables || []);
 
         if (data.styles) {

@@ -91,7 +91,7 @@ const Wizard = () => {
   };
 
   const submitReceiptName = () => {
-    const name = document.getElementById('receipt-name').value.trim();
+    const name = document.getElementById('receipt-name').value.trim()+".html";
     if (!name) return alert('Please enter a name for your receipt.');
 
     const iframe = document.querySelector('#step-2 iframe');

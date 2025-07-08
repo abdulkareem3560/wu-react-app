@@ -1,23 +1,32 @@
-import React, {useState, useEffect} from 'react';
-import {Receipt, ArrowLeft, X, Eye, FileText} from 'lucide-react';
+import React, {useState, useEffect, useRef} from 'react';
+import {Receipt, ArrowLeft, X, Eye, FileText, Edit, Trash} from 'lucide-react';
+import {Editor} from '@tinymce/tinymce-react';
+
+// You can set your own TinyMCE API key if you want cloud features, but for local editing it's not required.
 
 const SavedReceipts = () => {
   const [receipts, setReceipts] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editorHtml, setEditorHtml] = useState('');
+  const [editingReceipt, setEditingReceipt] = useState(null);
+  const [hoveredCard, setHoveredCard] = useState(null);
 
-  // Mock data for demonstration
+  // For TinyMCE, you can use a ref if you want to access the editor instance
+  const editorRef = useRef(null);
+
   useEffect(() => {
     const fetchReceipts = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/receipts/save`);
-
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/receipts`);
         const data = await response.json();
         setReceipts(data);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching receipts:', error);
+        setLoading(false);
       }
     };
 
@@ -29,29 +38,126 @@ const SavedReceipts = () => {
     setOpen(true);
   };
 
+  const handleEditClick = (receipt, e) => {
+    e.stopPropagation();
+    setEditingReceipt(receipt);
+    setEditorHtml(receipt.content || '');
+    setEditOpen(true);
+  };
+
   const handleClose = () => {
     setOpen(false);
     setTimeout(() => setSelectedReceipt(null), 300);
   };
 
+  const handleDeleteClick = async (receipt, e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete "${receipt.name}"?`)) return;
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_BASE_URL}/receipts/delete`,
+        {
+          method: 'POST', // or 'DELETE' if your backend supports it
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name: receipt.name}),
+        }
+      );
+      if (!response.ok) throw new Error('Failed to delete receipt');
+      setReceipts(prev => prev.filter(r => r.name !== receipt.name));
+      if (selectedReceipt && selectedReceipt.name === receipt.name) setSelectedReceipt(null);
+      alert(`Receipt "${receipt.name}" deleted successfully.`);
+    } catch (error) {
+      console.error('Error deleting receipt:', error);
+      alert('Failed to delete receipt.');
+    }
+  };
+
+  const handleEditClose = () => {
+    setEditOpen(false);
+    setTimeout(() => {
+      setEditingReceipt(null);
+      setEditorHtml('');
+    }, 300);
+  };
+
+  const getNextVersion = (originalName) => {
+    const baseName = originalName.split('.')[0].split('_v')[0];
+    const existingVersions = receipts
+      .map(receipt => receipt.name.split('.')[0])
+      .filter(name => name.startsWith(baseName))
+      .map(name => {
+        const versionMatch = name.match(/_v(\d+)$/);
+        return versionMatch ? parseInt(versionMatch[1]) : 1;
+      });
+
+    const nextVersion = existingVersions.length > 0 ? Math.max(...existingVersions) + 1 : 2;
+    return `${baseName}_v${nextVersion}`;
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      // Get HTML from TinyMCE editor
+      const htmlContent = editorRef.current ? editorRef.current.getContent() : editorHtml;
+
+      const newReceiptName = getNextVersion(editingReceipt.name);
+
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/receipts/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newReceiptName+".html",
+          html: htmlContent
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (response.ok) {
+        const savedReceipt = {
+          name: newReceiptName+".html",
+          content: htmlContent,
+          originalName: editingReceipt.name.split('_v')[0].split('.')[0],
+          createdAt: new Date().toISOString()
+        };
+
+        setReceipts(prev => [savedReceipt, ...prev]);
+        handleEditClose();
+        alert(`Receipt ${newReceiptName} saved successfully!`);
+      } else {
+        throw new Error('Failed to save receipt');
+      }
+    } catch (error) {
+      console.error('Error saving edited receipt:', error);
+      alert('Failed to save receipt.');
+    }
+  };
+
+  // Styles (unchanged)
   const styles = {
     container: {
       minHeight: '100vh',
-      background: '#f5f5f5',
+      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     },
     header: {
-      background: 'rgba(255, 255, 255, 0.8)',
-      backdropFilter: 'blur(12px)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+      background: 'white',
+      borderBottom: '1px solid #e2e8f0',
+      padding: '24px 0',
       position: 'sticky',
       top: 0,
-      zIndex: 40
+      zIndex: 100,
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
     },
     headerContent: {
       maxWidth: '1200px',
       margin: '0 auto',
-      padding: '16px 24px',
+      padding: '0 24px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between'
@@ -62,29 +168,23 @@ const SavedReceipts = () => {
       gap: '16px'
     },
     iconContainer: {
-      padding: '8px',
+      padding: '12px',
       background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
       borderRadius: '12px',
-      color: 'white',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
+      color: 'white'
     },
     title: {
       fontSize: '24px',
-      fontWeight: 'bold',
-      background: 'linear-gradient(135deg, #1f2937, #6b7280)',
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
+      fontWeight: '700',
+      color: '#1e293b',
       margin: 0
     },
     subtitle: {
       fontSize: '14px',
-      color: '#6b7280',
+      color: '#64748b',
       margin: '4px 0 0 0'
     },
     backButton: {
-      display: 'flex',
       border: "1.5px solid #006aff",
       background: "transparent",
       color: "#006aff",
@@ -94,11 +194,7 @@ const SavedReceipts = () => {
       padding: "6px 16px",
       textDecoration: "none",
       cursor: "pointer",
-    },
-    backButtonHover: {
-      background: 'rgba(255, 255, 255, 0.9)',
-      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-      transform: 'scale(1.05)'
+      display: "flex",
     },
     mainContent: {
       maxWidth: '1200px',
@@ -107,89 +203,24 @@ const SavedReceipts = () => {
     },
     grid: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
       gap: '24px'
     },
-    loadingCard: {
-      background: 'rgba(255, 255, 255, 0.6)',
-      borderRadius: '16px',
-      padding: '24px',
-      animation: 'pulse 2s infinite'
-    },
-    loadingBar: {
-      height: '16px',
-      background: '#e5e7eb',
-      borderRadius: '4px',
-      marginBottom: '16px'
-    },
-    loadingBarSmall: {
-      height: '12px',
-      background: '#e5e7eb',
-      borderRadius: '4px',
-      marginBottom: '8px'
-    },
-    loadingBarMedium: {
-      height: '12px',
-      background: '#e5e7eb',
-      borderRadius: '4px',
-      width: '66%'
-    },
-    emptyState: {
-      textAlign: 'center',
-      padding: '64px 0'
-    },
-    emptyIcon: {
-      width: '96px',
-      height: '96px',
-      background: 'linear-gradient(135deg, #dbeafe, #e0e7ff)',
-      borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      margin: '0 auto 24px'
-    },
-    emptyTitle: {
-      fontSize: '20px',
-      fontWeight: '600',
-      color: '#1f2937',
-      margin: '0 0 12px 0'
-    },
-    emptyText: {
-      color: '#6b7280',
-      maxWidth: '400px',
-      margin: '0 auto'
-    },
     card: {
-      position: 'relative',
-      background: 'rgba(255, 255, 255, 0.7)',
-      backdropFilter: 'blur(8px)',
+      background: 'white',
       borderRadius: '16px',
       padding: '24px',
       cursor: 'pointer',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      border: '1px solid rgba(255, 255, 255, 0.5)',
-      overflow: 'hidden'
+      transition: 'all 0.3s ease',
+      position: 'relative'
     },
-    cardHover: {
-      background: 'rgba(255, 255, 255, 0.9)',
-      boxShadow: '0 20px 40px rgba(59, 130, 246, 0.1)',
-      transform: 'translateY(-8px)',
-      borderColor: 'rgba(147, 197, 253, 0.5)'
-    },
-    cardOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(99, 102, 241, 0.05))',
-      borderRadius: '16px',
-      opacity: 0,
-      transition: 'opacity 0.3s ease'
+    cardHovered: {
+      transform: 'translateY(-4px)',
+      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+      borderColor: '#3b82f6'
     },
     cardContent: {
-      position: 'relative',
-      zIndex: 10
+      position: 'relative'
     },
     cardTop: {
       display: 'flex',
@@ -203,55 +234,34 @@ const SavedReceipts = () => {
       borderRadius: '12px',
       transition: 'all 0.3s ease'
     },
-    cardIconHover: {
-      background: 'linear-gradient(135deg, #bfdbfe, #c7d2fe)'
-    },
-    eyeIcon: {
-      opacity: 0,
+    actionIcons: {
+      display: 'flex',
+      gap: '8px',
       transition: 'opacity 0.3s ease'
     },
-    eyeIconVisible: {
-      opacity: 1
+    actionIconsHidden: {
+      opacity: 0,
+      visibility: 'hidden'
+    },
+    actionIconsVisible: {
+      opacity: 1,
+      visibility: 'visible'
     },
     cardTitle: {
-      fontWeight: '600',
-      color: '#1f2937',
-      margin: '0 0 12px 0',
-      transition: 'color 0.3s ease'
-    },
-    cardTitleHover: {
-      color: '#1e3a8a'
-    },
-    cardMeta: {
-      marginBottom: '16px'
-    },
-    cardDate: {
-      display: 'flex',
-      alignItems: 'center',
-      fontSize: '14px',
-      color: '#6b7280',
-      marginBottom: '8px',
-      gap: '8px'
-    },
-    cardAmount: {
       fontSize: '18px',
-      fontWeight: 'bold',
-      color: '#1f2937'
+      fontWeight: '600',
+      color: '#1e293b',
+      margin: '0 0 12px 0'
     },
     cardFooter: {
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between'
+      justifyContent: 'space-between',
+      marginTop: '16px'
     },
     cardFooterText: {
       fontSize: '14px',
-      color: '#6b7280'
-    },
-    statusDot: {
-      width: '8px',
-      height: '8px',
-      background: '#10b981',
-      borderRadius: '50%'
+      color: '#64748b'
     },
     modal: {
       position: 'fixed',
@@ -264,19 +274,17 @@ const SavedReceipts = () => {
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1000,
-      backdropFilter: 'blur(4px)',
-      animation: open ? 'fadeIn 0.3s ease' : 'fadeOut 0.3s ease'
+      backdropFilter: 'blur(4px)'
     },
     modalContent: {
       background: 'white',
       borderRadius: '16px',
-      padding: '32px',
+      padding: '24px',
       width: '90%',
       maxWidth: '800px',
       maxHeight: '80vh',
       overflow: 'auto',
-      position: 'relative',
-      animation: open ? 'slideIn 0.3s ease' : 'slideOut 0.3s ease'
+      position: 'relative'
     },
     modalHeader: {
       display: 'flex',
@@ -284,58 +292,165 @@ const SavedReceipts = () => {
       justifyContent: 'space-between',
       marginBottom: '24px',
       paddingBottom: '16px',
-      borderBottom: '1px solid #e5e7eb'
+      borderBottom: '1px solid #e2e8f0'
     },
     modalTitle: {
       fontSize: '20px',
       fontWeight: '600',
-      color: '#1f2937',
+      color: '#1e293b',
       margin: 0
     },
     closeButton: {
       padding: '8px',
-      background: '#f3f4f6',
+      background: 'transparent',
       border: 'none',
       borderRadius: '8px',
       cursor: 'pointer',
-      transition: 'all 0.2s ease',
+      color: '#64748b',
+      transition: 'all 0.2s ease'
+    },
+    editModal: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.8)',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: 'center',
+      zIndex: 1000,
+      backdropFilter: 'blur(4px)'
     },
-    closeButtonHover: {
-      background: '#e5e7eb',
-      transform: 'scale(1.1)'
+    editModalContent: {
+      background: 'white',
+      borderRadius: '16px',
+      padding: '24px',
+      width: '95%',
+      maxWidth: '1000px',
+      maxHeight: '90vh',
+      overflow: 'auto',
+      position: 'relative'
+    },
+    editorContainer: {
+      border: '1px solid #e5e7eb',
+      borderRadius: '12px',
+      minHeight: '400px',
+      marginBottom: '24px',
+      overflow: 'hidden'
+    },
+    buttonContainer: {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      gap: '12px',
+      paddingTop: '16px',
+      borderTop: '1px solid #e2e8f0'
+    },
+    saveButton: {
+      backgroundColor: "black",
+      color: "#ffd400",
+      fontWeight: 600,
+      border: "none",
+      padding: "8px 20px",
+      borderRadius: "20px",
+      cursor: "pointer",
+      transition: "background-color 0.3s ease",
+    },
+    saveButtonHover: {
+      // transform: 'translateY(-2px)',
+      boxShadow: '0 8px 25px rgba(59, 130, 246, 0.3)'
+    },
+    cancelButton: {
+      background: 'transparent',
+      color: '#6b7280',
+      border: '1px solid rgb(129 131 136)',
+      borderRadius: '20px',
+      padding: '12px 24px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      transition: 'all 0.2s ease'
+    },
+    loadingCard: {
+      background: 'white',
+      borderRadius: '16px',
+      padding: '24px',
+      border: '1px solid #e2e8f0'
+    },
+    loadingBar: {
+      height: '20px',
+      background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
+      borderRadius: '4px',
+      marginBottom: '12px',
+      animation: 'pulse 2s ease-in-out infinite'
+    },
+    loadingBarSmall: {
+      height: '16px',
+      background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
+      borderRadius: '4px',
+      marginBottom: '8px',
+      width: '60%',
+      animation: 'pulse 2s ease-in-out infinite'
+    },
+    loadingBarMedium: {
+      height: '16px',
+      background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
+      borderRadius: '4px',
+      width: '80%',
+      animation: 'pulse 2s ease-in-out infinite'
+    },
+    emptyState: {
+      textAlign: 'center',
+      padding: '64px 24px'
+    },
+    emptyIcon: {
+      marginBottom: '24px'
+    },
+    emptyTitle: {
+      fontSize: '20px',
+      fontWeight: '600',
+      color: '#1e293b',
+      marginBottom: '8px'
+    },
+    emptyText: {
+      fontSize: '16px',
+      color: '#64748b',
+      maxWidth: '400px',
+      margin: '0 auto'
     }
   };
 
-  // Add keyframes for animations
-  const keyframes = `
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    @keyframes fadeOut {
-      from { opacity: 1; }
-      to { opacity: 0; }
-    }
-    @keyframes slideIn {
-      from { transform: scale(0.95) translateY(20px); opacity: 0; }
-      to { transform: scale(1) translateY(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-      from { transform: scale(1) translateY(0); opacity: 1; }
-      to { transform: scale(0.95) translateY(20px); opacity: 0; }
-    }
-  `;
-
   return (
     <>
-      <style>{keyframes}</style>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        .tox-tinymce {
+          border-radius: 12px !important;
+        }
+        .tox-promotion,
+        .tox-promotion-button,
+        .tox-statusbar__upgrade {
+          display: none !important;
+        }
+        .actionIcon {
+          padding: 8px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.2s, box-shadow 0.2s;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .actionIcon:hover {
+          background: white;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+      `}</style>
+
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
@@ -351,8 +466,6 @@ const SavedReceipts = () => {
             </div>
             <button
               style={styles.backButton}
-              onMouseEnter={(e) => Object.assign(e.target.style, styles.backButtonHover)}
-              onMouseLeave={(e) => Object.assign(e.target.style, styles.backButton)}
               onClick={() => window.location.href = '/'}
             >
               <ArrowLeft size={16}/>
@@ -388,44 +501,56 @@ const SavedReceipts = () => {
               {receipts.map((receipt, index) => (
                 <div
                   key={index}
-                  style={styles.card}
-                  onMouseEnter={(e) => {
-                    Object.assign(e.currentTarget.style, styles.cardHover);
-                    const overlay = e.currentTarget.querySelector('.card-overlay');
-                    const eyeIcon = e.currentTarget.querySelector('.eye-icon');
-                    const cardIcon = e.currentTarget.querySelector('.card-icon');
-                    const cardTitle = e.currentTarget.querySelector('.card-title');
-                    if (overlay) overlay.style.opacity = '1';
-                    if (eyeIcon) eyeIcon.style.opacity = '1';
-                    if (cardIcon) Object.assign(cardIcon.style, styles.cardIconHover);
-                    if (cardTitle) Object.assign(cardTitle.style, styles.cardTitleHover);
+                  style={{
+                    ...styles.card,
+                    ...(hoveredCard === index ? styles.cardHovered : {})
                   }}
-                  onMouseLeave={(e) => {
-                    Object.assign(e.currentTarget.style, styles.card);
-                    const overlay = e.currentTarget.querySelector('.card-overlay');
-                    const eyeIcon = e.currentTarget.querySelector('.eye-icon');
-                    const cardIcon = e.currentTarget.querySelector('.card-icon');
-                    const cardTitle = e.currentTarget.querySelector('.card-title');
-                    if (overlay) overlay.style.opacity = '0';
-                    if (eyeIcon) eyeIcon.style.opacity = '0';
-                    if (cardIcon) Object.assign(cardIcon.style, styles.cardIcon);
-                    if (cardTitle) Object.assign(cardTitle.style, styles.cardTitle);
-                  }}
+                  onMouseEnter={() => setHoveredCard(index)}
+                  onMouseLeave={() => setHoveredCard(null)}
                   onClick={() => handleReceiptClick(receipt)}
                 >
-                  <div className="card-overlay" style={styles.cardOverlay}></div>
-
                   <div style={styles.cardContent}>
                     <div style={styles.cardTop}>
-                      <div className="card-icon" style={styles.cardIcon}>
+                      <div style={styles.cardIcon}>
                         <FileText size={24} color="#3b82f6"/>
                       </div>
-                      <div className="eye-icon" style={styles.eyeIcon}>
-                        <Eye size={20} color="#9ca3af"/>
+                      <div
+                        style={{
+                          ...styles.actionIcons,
+                          ...(hoveredCard === index ? styles.actionIconsVisible : styles.actionIconsHidden)
+                        }}
+                      >
+                        <div
+                          className="actionIcon"
+                          style={styles.actionIcon}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReceiptClick(receipt);
+                          }}
+                          title="View Receipt"
+                        >
+                          <Eye size={16} color="#6b7280"/>
+                        </div>
+                        <div
+                          className="actionIcon"
+                          style={styles.actionIcon}
+                          onClick={(e) => handleEditClick(receipt, e)}
+                          title="Edit Receipt"
+                        >
+                          <Edit size={16} color="#6b7280"/>
+                        </div>
+                        <div
+                          className="actionIcon"
+                          style={styles.actionIcon}
+                          onClick={(e) => handleDeleteClick(receipt, e)}
+                          title="Delete Receipt"
+                        >
+                          <Trash size={16} color="#ef4444"/>
+                        </div>
                       </div>
                     </div>
 
-                    <h3 className="card-title" style={styles.cardTitle}>
+                    <h3 style={styles.cardTitle}>
                       {receipt.name.split(".")[0]}
                     </h3>
 
@@ -440,7 +565,7 @@ const SavedReceipts = () => {
           )}
         </div>
 
-        {/* Modal */}
+        {/* View Modal */}
         {open && (
           <div style={styles.modal} onClick={handleClose}>
             <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
@@ -448,18 +573,78 @@ const SavedReceipts = () => {
                 <h2 style={styles.modalTitle}>
                   {selectedReceipt?.name || 'Receipt Details'}
                 </h2>
-                <button
-                  style={styles.closeButton}
-                  onMouseEnter={(e) => Object.assign(e.target.style, styles.closeButtonHover)}
-                  onMouseLeave={(e) => Object.assign(e.target.style, styles.closeButton)}
-                  onClick={handleClose}
-                >
+                <button style={styles.closeButton} onClick={handleClose}>
                   <X size={20}/>
                 </button>
               </div>
               {selectedReceipt && (
-                <div dangerouslySetInnerHTML={{__html: selectedReceipt.content}}/>
+                <div style={{width: "277px", margin: "0 auto"}}
+                     dangerouslySetInnerHTML={{__html: selectedReceipt.content}}/>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {editOpen && (
+          <div style={styles.editModal} onClick={handleEditClose}>
+            <div style={styles.editModalContent} onClick={(e) => e.stopPropagation()}>
+              <div style={styles.modalHeader}>
+                <h2 style={styles.modalTitle}>
+                  Edit Receipt: {editingReceipt?.name.split('.')[0]}
+                </h2>
+                <button style={styles.closeButton} onClick={handleEditClose}>
+                  <X size={20}/>
+                </button>
+              </div>
+
+              <div style={styles.editorContainer}>
+                <Editor
+
+                  apiKey="yvxhm1ix3qy7xh8xrwcz8ry91sf4xzv7yn17b56np83iiey0" // Optional: add your TinyMCE API key for cloud features
+                  onInit={(evt, editor) => editorRef.current = editor}
+                  value={editorHtml}
+                  onEditorChange={setEditorHtml}
+                  init={{
+                    branding: false,
+                    statusbar: false,
+                    promotion: false,
+                    height: 400,
+                    menubar: true,
+                    plugins: [
+                      'advlist autolink lists link image charmap print preview anchor',
+                      'searchreplace visualblocks code fullscreen',
+                      'insertdatetime media table paste code help wordcount'
+                    ],
+                    toolbar:
+                      'undo redo | formatselect | ' +
+                      'bold italic underline backcolor | alignleft aligncenter ' +
+                      'alignright alignjustify | bullist numlist outdent indent | ' +
+                      'removeformat | help | fontsizeselect fontselect',
+                    font_size_formats: '8px 9px 10px 11px 12px 14px 16px 18px 20px 24px 28px 32px 36px',
+                    font_family_formats:
+                      'Arial=arial,helvetica,sans-serif; Courier New=courier new,courier,monospace; Times New Roman=times new roman,times; Helvetica=helvetica; Sans Serif=sans-serif;',
+                    content_style: 'body { font-family:Arial,Helvetica,sans-serif; font-size:10px }'
+                  }}
+                />
+              </div>
+
+              <div style={styles.buttonContainer}>
+                <button
+                  style={styles.saveButton}
+                  onMouseEnter={(e) => Object.assign(e.target.style, styles.saveButtonHover)}
+                  onMouseLeave={(e) => Object.assign(e.target.style, styles.saveButton)}
+                  onClick={handleSaveEdit}
+                >
+                  Save as New Version
+                </button>
+                <button
+                  style={styles.cancelButton}
+                  onClick={handleEditClose}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
