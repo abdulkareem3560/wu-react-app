@@ -1722,7 +1722,7 @@ const TemplateLibrary = () => {
                         onChange={(e) => handleVariableChange(index, e.target.value)}
                       >
                         <option value="">-- Select Value --</option>
-                        {variables.map((varValue, idx) => (
+                        {globalVariableKeys.current.map((varValue, idx) => (
                           <option key={idx} value={varValue}>{varValue}</option>
                         ))}
                       </select>
