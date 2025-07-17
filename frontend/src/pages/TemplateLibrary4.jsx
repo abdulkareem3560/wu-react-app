@@ -1605,7 +1605,7 @@ const TemplateLibrary = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="bgColor">Fill Color</label>
+              <label htmlFor="bgColor">Background Color</label>
               <input
                 type="color"
                 id="bgColor"
@@ -1653,7 +1653,7 @@ const TemplateLibrary = () => {
 
           <div className="buttons-container">
             <button type="button" onClick={handleApplyStyle}>Apply Style</button>
-            <button onClick={handleInsertTable}>Insert Table</button>
+            {/*<button onClick={handleInsertTable}>Insert Table</button>*/}
             <button type="button">Preview Saved HTML</button>
           </div>
         </div>
