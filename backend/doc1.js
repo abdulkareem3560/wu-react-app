@@ -236,7 +236,6 @@ document.querySelectorAll(".addRuleBtn").forEach((button) => {
 });
 
 function openRuleModalForSection(sectionId) {
-  console.log(sectionId, "here5......")
   if (!sectionId) {
     alert("Please select a valid section");
     return;
@@ -251,6 +250,7 @@ function openRuleModalForSection(sectionId) {
   sectionWrapper.innerHTML = "";
   variableContainer.innerHTML = "";
   sectionLogicInput.value = "";
+  extractVariables();
 
   // Fetch saved rules for this section
   fetch(
